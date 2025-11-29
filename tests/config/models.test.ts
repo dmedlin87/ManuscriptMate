@@ -31,6 +31,20 @@ describe('ModelConfig', () => {
   it('flash alias returns agent model', () => {
     expect(ModelConfig.flash).toBe(ModelConfig.agent);
   });
+
+  it('uses the expected model ids', () => {
+    expect(ModelConfig.analysis).toBe('gemini-3-pro-preview');
+    expect(ModelConfig.agent).toBe('gemini-2.5-flash');
+    expect(ModelConfig.tts).toBe('gemini-2.5-flash-preview-tts');
+    expect(ModelConfig.liveAudio).toBe('gemini-2.5-flash-native-audio-preview-09-2025');
+    expect(ModelConfig.tools).toBe('gemini-2.5-flash');
+  });
+
+  it('aliases stay in sync with base models', () => {
+    const { analysis, agent, pro, flash } = ModelConfig;
+    expect(pro).toBe(analysis);
+    expect(flash).toBe(agent);
+  });
 });
 
 describe('TokenLimits', () => {
@@ -38,12 +52,37 @@ describe('TokenLimits', () => {
     expect(TokenLimits['gemini-3-pro-preview']).toBeDefined();
     expect(TokenLimits['gemini-2.5-flash']).toBeDefined();
     expect(TokenLimits['gemini-2.5-flash-preview-tts']).toBeDefined();
+    expect(TokenLimits['gemini-2.5-flash-native-audio-preview-09-2025']).toBeDefined();
   });
 
   it('has reasonable token limits', () => {
     expect(TokenLimits['gemini-3-pro-preview']).toBeGreaterThan(100_000);
     expect(TokenLimits['gemini-2.5-flash']).toBeGreaterThan(100_000);
     expect(TokenLimits['gemini-2.5-flash-preview-tts']).toBeGreaterThan(1_000);
+    expect(TokenLimits['gemini-2.5-flash-native-audio-preview-09-2025']).toBeGreaterThan(10_000);
+  });
+
+  it('defines limits for every model used in ModelConfig', () => {
+    const models = [
+      ModelConfig.analysis,
+      ModelConfig.agent,
+      ModelConfig.tts,
+      ModelConfig.liveAudio,
+      ModelConfig.tools,
+    ] as const;
+
+    for (const model of models) {
+      const limit = TokenLimits[model];
+      expect(limit).toBeDefined();
+      expect(typeof limit).toBe('number');
+      expect(limit).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives higher limits to main text models than to tts', () => {
+    expect(TokenLimits[ModelConfig.analysis]).toBeGreaterThan(
+      TokenLimits[ModelConfig.tts]
+    );
   });
 });
 
@@ -66,5 +105,14 @@ describe('ThinkingBudgets', () => {
   it('analysis has highest budget', () => {
     expect(ThinkingBudgets.analysis).toBeGreaterThan(ThinkingBudgets.plotIdeas);
     expect(ThinkingBudgets.analysis).toBeGreaterThan(ThinkingBudgets.rewrite);
+  });
+
+  it('all budgets are positive finite numbers', () => {
+    const values = Object.values(ThinkingBudgets);
+    for (const value of values) {
+      expect(typeof value).toBe('number');
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThan(0);
+    }
   });
 });

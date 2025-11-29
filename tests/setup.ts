@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Global test setup
 // Add any global mocks or setup here
+
+// Mock environment variables for Gemini API
+vi.stubEnv('VITE_GEMINI_API_KEY', 'test-api-key-for-testing');
 
 // Mock matchMedia for components that use it
 Object.defineProperty(window, 'matchMedia', {
