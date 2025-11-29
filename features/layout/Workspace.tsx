@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useEditor, useDraftSmithEngine, useManuscriptIndexer } from '@/features/shared';
+import { useEditor, useQuillAIEngine, useManuscriptIndexer } from '@/features/shared';
 import { useProjectStore } from '@/features/project';
 import { EditorLayout } from './EditorLayout';
 import { SidebarTab } from '@/types';
@@ -38,7 +38,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onHomeClick }) => {
   const activeChapter = getActiveChapter();
 
   // Engine Layer
-  const engine = useDraftSmithEngine({
+  const engine = useQuillAIEngine({
     getCurrentText: () => currentText, 
     currentProject,
     activeChapterId,

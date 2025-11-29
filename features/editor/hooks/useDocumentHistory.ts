@@ -4,7 +4,7 @@ import { HistoryItem } from '@/types';
 /**
  * Storage keys for persisting edit history
  */
-const STORAGE_PREFIX = 'draftsmith_history_';
+const STORAGE_PREFIX = 'quillai_history_';
 const MAX_PERSISTED_ITEMS = 50; // Limit to prevent storage bloat
 
 /**
@@ -70,7 +70,10 @@ export function useDocumentHistory(
       setHistory(restoredHistory);
       setRedoStack([]);
       isFirstLoad.current = true;
-  }, [initialText, chapterId]);
+  // We only want this to run when the chapter switches; `initialText` updates during typing
+  // should not trigger a history reload.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId]);
 
   // Persist history changes to session storage
   useEffect(() => {

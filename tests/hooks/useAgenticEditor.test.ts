@@ -52,7 +52,7 @@ describe('useAgenticEditor', () => {
 
     const { result } = renderHook(() => useAgenticEditor({
       editorActions,
-      chapters: [{ title: 'One', content: currentText }],
+      chapters: [{ id: 'ch1', projectId: 'p1', title: 'One', content: currentText, order: 0, updatedAt: Date.now() }],
       analysis: null,
     }));
 
@@ -80,7 +80,7 @@ describe('useAgenticEditor', () => {
 
     const { result } = renderHook(() => useAgenticEditor({
       editorActions,
-      chapters: [{ title: 'One', content: currentText }],
+      chapters: [{ id: 'ch1', projectId: 'p1', title: 'One', content: currentText, order: 0, updatedAt: Date.now() }],
       analysis: null,
     }));
 

@@ -1,7 +1,7 @@
 /**
  * Features Index
  * 
- * Central export point for all feature modules in DraftSmith AI
+ * Central export point for all feature modules in Quill AI
  */
 
 // Shared (contexts, hooks, utils, core components)

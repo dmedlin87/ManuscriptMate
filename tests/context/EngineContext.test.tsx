@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { EngineProvider, useEngine, type EngineState, type EngineActions } from '@/features/shared/context/EngineContext';
 import type { Contradiction } from '@/types/schema';
-import { useDraftSmithEngine } from '@/features/shared/hooks/useDraftSmithEngine';
+import { useQuillAIEngine } from '@/features/shared/hooks/useDraftSmithEngine';
 import { useManuscriptIndexer } from '@/features/shared/hooks/useManuscriptIndexer';
 import { useEditor } from '@/features/shared/context/EditorContext';
 import { useProjectStore } from '@/features/project';
@@ -22,7 +22,7 @@ let mockActions: EngineActions;
 let indexerHandler: ((contradictions: Contradiction[]) => void) | undefined;
 
 vi.mock('@/features/shared/hooks/useDraftSmithEngine', () => ({
-  useDraftSmithEngine: vi.fn(() => ({ state: engineState, actions: mockActions }))
+  useQuillAIEngine: vi.fn(() => ({ state: engineState, actions: mockActions }))
 }));
 
 vi.mock('@/features/shared/hooks/useManuscriptIndexer', () => ({
@@ -33,7 +33,7 @@ vi.mock('@/features/shared/hooks/useManuscriptIndexer', () => ({
 
 const mockUseEditor = useEditor as unknown as Mock;
 const mockUseProjectStore = useProjectStore as unknown as Mock;
-const mockUseDraftSmithEngine = useDraftSmithEngine as unknown as Mock;
+const mockUseQuillAIEngine = useQuillAIEngine as unknown as Mock;
 const mockUseManuscriptIndexer = useManuscriptIndexer as unknown as Mock;
 
 const EngineConsumer = () => {
@@ -89,7 +89,7 @@ beforeEach(() => {
     updateProjectLore: vi.fn()
   });
 
-  mockUseDraftSmithEngine.mockClear();
+  mockUseQuillAIEngine.mockClear();
   mockUseManuscriptIndexer.mockClear();
 });
 
@@ -158,8 +158,10 @@ describe('EngineContext', () => {
       characterName: 'Alice',
       attribute: 'eye_color',
       originalValue: 'blue',
+      originalChapterId: 'chapter-1',
       newValue: 'green',
-      location: { chapterId: 'chapter-1', position: 10 }
+      newChapterId: 'chapter-1',
+      position: 10
     };
 
     await act(async () => {

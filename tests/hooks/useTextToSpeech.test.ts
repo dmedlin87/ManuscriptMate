@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type MockedFunction } from 'vitest';
 import { useTextToSpeech } from '@/features/voice/hooks/useTextToSpeech';
 import { generateSpeech } from '@/services/gemini/audio';
 
@@ -44,7 +44,7 @@ describe('useTextToSpeech', () => {
 
   it('plays generated speech and stops when audio ends', async () => {
     const audioBuffer = { duration: 1 } as any;
-    (generateSpeech as vi.MockedFunction<typeof generateSpeech>).mockResolvedValue(audioBuffer);
+    (generateSpeech as MockedFunction<typeof generateSpeech>).mockResolvedValue(audioBuffer);
 
     const { result } = renderHook(() => useTextToSpeech());
 
@@ -64,7 +64,7 @@ describe('useTextToSpeech', () => {
   });
 
   it('handles generation failures gracefully', async () => {
-    (generateSpeech as vi.MockedFunction<typeof generateSpeech>).mockResolvedValue(null);
+    (generateSpeech as MockedFunction<typeof generateSpeech>).mockResolvedValue(null);
 
     const { result } = renderHook(() => useTextToSpeech());
 
@@ -78,7 +78,7 @@ describe('useTextToSpeech', () => {
 
   it('abort controller cancels playback on stop', async () => {
     const audioBuffer = { duration: 1 } as any;
-    (generateSpeech as vi.MockedFunction<typeof generateSpeech>).mockResolvedValue(audioBuffer);
+    (generateSpeech as MockedFunction<typeof generateSpeech>).mockResolvedValue(audioBuffer);
 
     const { result } = renderHook(() => useTextToSpeech());
 

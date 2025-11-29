@@ -82,10 +82,10 @@ export interface Chapter {
   order: number;
   lastAnalysis?: AnalysisResult;
   updatedAt: number;
-  // DraftSmith 3.0: Branching
+  // Quill AI 3.0: Branching
   branches?: Branch[];
   activeBranchId?: string | null;
-  // DraftSmith 3.0: Inline Comments
+  // Quill AI 3.0: Inline Comments
   comments?: InlineComment[];
 }
 

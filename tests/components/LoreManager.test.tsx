@@ -3,13 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { LoreManager } from '@/features/lore';
 import { useProjectStore } from '@/features/project';
 import type { CharacterProfile } from '@/types';
-import { vi, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock('@/features/project', () => ({
   useProjectStore: vi.fn(),
 }));
 
-const mockedUseProjectStore = useProjectStore as MockedFunction<typeof useProjectStore>;
+const mockedUseProjectStore = vi.mocked(useProjectStore);
 const updateProjectLore = vi.fn();
 
 const baseCharacter: CharacterProfile = {

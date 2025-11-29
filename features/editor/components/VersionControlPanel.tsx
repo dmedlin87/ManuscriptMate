@@ -1,5 +1,5 @@
 /**
- * VersionControlPanel - Chapter Branching System for DraftSmith 3.0
+ * VersionControlPanel - Chapter Branching System for Quill AI 3.0
  * 
  * Multiverse editing: create, switch, and merge content branches.
  */

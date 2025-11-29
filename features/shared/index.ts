@@ -24,7 +24,7 @@ export {
 export { UsageProvider, useUsage } from './context/UsageContext';
 
 // Hooks
-export { useDraftSmithEngine, type PendingDiff } from './hooks/useDraftSmithEngine';
+export { useQuillAIEngine, type PendingDiff } from './hooks/useDraftSmithEngine';
 export { useManuscriptIndexer } from './hooks/useManuscriptIndexer';
 export { usePlotSuggestions } from './hooks/usePlotSuggestions';
 export { useViewportCollision } from './hooks/useViewportCollision';

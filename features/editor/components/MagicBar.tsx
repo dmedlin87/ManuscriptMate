@@ -122,8 +122,8 @@ export const MagicBar: React.FC<MagicBarProps> = ({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const menuButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--ink-700)] text-[var(--parchment-200)] hover:text-white hover:scale-105 active:scale-95";
-  const primaryButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-[var(--ink-800)] text-[var(--magic-300)] hover:bg-[var(--ink-700)] hover:text-[var(--magic-200)] shadow-sm hover:shadow-md border border-[var(--ink-600)]";
+  const menuButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--interactive-bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:scale-105 active:scale-95";
+  const primaryButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)] hover:bg-[var(--interactive-bg-hover)] hover:text-[var(--interactive-accent-hover)] shadow-sm hover:shadow-md border border-[var(--glass-border)]";
 
   // --- Render Loading State ---
   if (isLoading) {
@@ -132,21 +132,21 @@ export const MagicBar: React.FC<MagicBarProps> = ({
         style={{ top: displayPosition.top, left: displayPosition.left }}
         className="fixed z-50 -translate-x-1/2 -translate-y-full -mt-4 animate-scale-in origin-bottom"
       >
-        <div className="relative bg-[var(--ink-950)] text-white rounded-full px-6 py-3 shadow-[var(--shadow-magic)] flex items-center gap-3 border border-[var(--ink-800)]">
+        <div className="relative glass-strong text-[var(--text-primary)] rounded-full px-6 py-3 shadow-[var(--shadow-magic)] flex items-center gap-3">
           <SparkleField />
           <div className="relative z-10 flex items-center gap-3">
-             <div className="w-5 h-5 border-2 border-[var(--magic-400)] border-t-transparent rounded-full animate-spin"></div>
-             <span className="text-sm font-medium bg-gradient-to-r from-[var(--magic-200)] to-[var(--magic-400)] bg-clip-text text-transparent animate-pulse">
+             <div className="w-5 h-5 border-2 border-[var(--interactive-accent)] border-t-transparent rounded-full animate-spin"></div>
+             <span className="text-sm font-medium bg-gradient-to-r from-[var(--magic-300)] to-[var(--interactive-accent)] bg-clip-text text-transparent animate-pulse">
                Consulting the muse...
              </span>
              {activeMode && (
-               <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--ink-800)] border border-[var(--ink-700)] text-[10px] font-bold text-[var(--magic-300)] uppercase tracking-wider animate-fade-in">
+               <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--interactive-bg-active)] border border-[var(--glass-border)] text-[10px] font-bold text-[var(--interactive-accent)] uppercase tracking-wider animate-fade-in">
                  {activeMode}
                </span>
              )}
           </div>
           {/* Triangle Caret */}
-          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--ink-950)] rotate-45 border-b border-r border-[var(--ink-800)]"></div>
+          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--glass-bg)] rotate-45 border-b border-r border-[var(--glass-border)]"></div>
         </div>
       </div>
     );
@@ -162,9 +162,9 @@ export const MagicBar: React.FC<MagicBarProps> = ({
           : '-translate-y-full origin-bottom'
       }`}
     >
-      {/* 1. Main Menu & Tone Selector (Dark Theme) */}
+      {/* 1. Main Menu & Tone Selector - Glassmorphism */}
       {(activeView === 'menu' || activeView === 'tone') && (
-        <div className="bg-[var(--ink-900)] rounded-xl shadow-2xl p-2 flex items-center gap-1.5 border border-[var(--ink-800)] relative animate-fade-in ring-1 ring-white/10 backdrop-blur-md">
+        <div className="glass-strong rounded-xl shadow-2xl p-2 flex items-center gap-1.5 relative animate-fade-in">
           
           {activeView === 'menu' ? (
             <>
@@ -178,7 +178,7 @@ export const MagicBar: React.FC<MagicBarProps> = ({
                   </button>
               </div>
 
-              <div className="w-px h-6 bg-[var(--ink-700)] mx-1"></div>
+              <div className="w-px h-6 bg-[var(--border-primary)] mx-1"></div>
 
               {/* Rewrite Tools */}
               <div className="flex gap-1">
@@ -193,10 +193,10 @@ export const MagicBar: React.FC<MagicBarProps> = ({
                   </button>
               </div>
 
-              <div className="w-px h-6 bg-[var(--ink-700)] mx-1"></div>
+              <div className="w-px h-6 bg-[var(--border-primary)] mx-1"></div>
 
               {/* Close */}
-              <button onClick={onClose} className="p-2 text-[var(--ink-400)] hover:text-white rounded-lg hover:bg-[var(--ink-800)] transition-colors">
+              <button onClick={onClose} className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--interactive-bg-hover)] transition-colors">
                 <Icons.X />
               </button>
             </>
@@ -205,7 +205,7 @@ export const MagicBar: React.FC<MagicBarProps> = ({
             <div className="flex items-center gap-1 animate-slide-up">
               <button 
                 onClick={() => setActiveView('menu')} 
-                className="p-2 text-[var(--ink-400)] hover:text-white rounded-lg hover:bg-[var(--ink-800)] mr-1"
+                className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--interactive-bg-hover)] mr-1"
               >
                 <Icons.ChevronLeft />
               </button>
@@ -222,25 +222,25 @@ export const MagicBar: React.FC<MagicBarProps> = ({
             </div>
           )}
           
-          {/* Dark Caret */}
-          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--ink-900)] rotate-45 border-b border-r border-[var(--ink-800)]"></div>
+          {/* Caret */}
+          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--glass-bg)] rotate-45 border-b border-r border-[var(--glass-border)]"></div>
         </div>
       )}
 
-      {/* 2. Variations & Help (Light Paper Theme) */}
+      {/* 2. Variations & Help - Glassmorphism */}
       {(activeView === 'variations' || activeView === 'help') && (
-        <div className="bg-[var(--parchment-50)] rounded-xl shadow-xl border border-[var(--ink-200)] w-[480px] max-w-[90vw] overflow-hidden flex flex-col animate-slide-up origin-bottom ring-4 ring-[var(--parchment-100)]">
+        <div className="glass-strong rounded-xl shadow-xl w-[480px] max-w-[90vw] overflow-hidden flex flex-col animate-slide-up origin-bottom">
           
           {/* Header */}
-          <div className="px-4 py-3 border-b border-[var(--ink-100)] bg-gradient-to-r from-[var(--parchment-100)] to-[var(--parchment-50)] flex justify-between items-center">
-            <div className="flex items-center gap-2 text-[var(--ink-700)] font-serif font-bold text-base">
+          <div className="px-4 py-3 border-b border-[var(--glass-border)] flex justify-between items-center">
+            <div className="flex items-center gap-2 text-[var(--text-primary)] font-serif font-bold text-base">
               {activeView === 'variations' ? (
                 <>
-                  <span className="text-[var(--magic-500)]"><Icons.Sparkles /></span>
+                  <span className="text-[var(--interactive-accent)]"><Icons.Sparkles /></span>
                   <div className="flex flex-col leading-tight">
                     <span className="font-bold">Magic Variations</span>
                     {activeMode && (
-                      <span className="inline-flex self-start mt-0.5 px-1.5 py-0.5 rounded bg-[var(--magic-100)] text-[var(--ink-800)] text-[10px] font-bold uppercase tracking-wider border border-[var(--magic-200)]">
+                      <span className="inline-flex self-start mt-0.5 px-1.5 py-0.5 rounded bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)] text-[10px] font-bold uppercase tracking-wider border border-[var(--glass-border)]">
                         {activeMode}
                       </span>
                     )}
@@ -248,35 +248,35 @@ export const MagicBar: React.FC<MagicBarProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="text-[var(--magic-500)]"><Icons.Lightbulb /></span>
+                  <span className="text-[var(--interactive-accent)]"><Icons.Lightbulb /></span>
                   {helpType === 'Thesaurus' ? 'Synonyms & Related Words' : 'Context & Definition'}
                 </>
               )}
             </div>
             <button 
               onClick={onClose}
-              className="p-1.5 text-[var(--ink-400)] hover:bg-[var(--ink-100)] hover:text-[var(--ink-700)] rounded-md transition-colors"
+              className="p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--interactive-bg-hover)] hover:text-[var(--text-primary)] rounded-md transition-colors"
             >
               <Icons.X />
             </button>
           </div>
 
           {/* Body */}
-          <div className="p-4 max-h-[320px] overflow-y-auto bg-[var(--parchment-50)] custom-scrollbar">
+          <div className="p-4 max-h-[320px] overflow-y-auto custom-scrollbar">
             {activeView === 'variations' ? (
               <div className="space-y-3">
                 {variations.map((v, i) => (
                   <div
                     key={i}
                     onClick={() => onApply(v)}
-                    className="group relative p-5 bg-white rounded-lg border border-[var(--ink-100)] hover:border-[var(--magic-300)] hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-0.5 animate-slide-up hover:ring-1 hover:ring-[var(--magic-100)]"
+                    className="group relative p-5 bg-[var(--surface-elevated)] rounded-lg border border-[var(--border-primary)] hover:border-[var(--interactive-accent)] hover:shadow-md cursor-pointer transition-all duration-300 transform hover:-translate-y-0.5 animate-slide-up hover:ring-1 hover:ring-[var(--interactive-bg-active)]"
                     style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}
                   >
-                    <p className="text-[var(--ink-800)] font-serif text-lg leading-relaxed pr-6">{v}</p>
+                    <p className="text-[var(--text-primary)] font-serif text-lg leading-relaxed pr-6">{v}</p>
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleCopy(v, i); }}
-                        className={`p-1.5 rounded-md border transition-all ${copiedIndex === i ? 'bg-green-50 border-green-200 text-green-600' : 'bg-white border-[var(--ink-200)] text-[var(--ink-400)] hover:text-[var(--ink-700)] hover:border-[var(--ink-300)]'}`}
+                        className={`p-1.5 rounded-md border transition-all ${copiedIndex === i ? 'bg-[var(--success-100)] border-[var(--success-500)] text-[var(--success-500)]' : 'bg-[var(--surface-elevated)] border-[var(--border-secondary)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:border-[var(--border-primary)]'}`}
                         title="Copy to clipboard"
                       >
                         {copiedIndex === i ? <Icons.Check /> : <Icons.Copy />}
@@ -293,7 +293,7 @@ export const MagicBar: React.FC<MagicBarProps> = ({
                        <button
                          key={i}
                          onClick={() => onApply(word.trim())}
-                         className="px-4 py-2 bg-white border border-[var(--ink-100)] rounded-lg text-[var(--ink-700)] text-sm font-medium hover:border-[var(--magic-300)] hover:bg-[var(--magic-50)] hover:text-[var(--magic-700)] transition-all shadow-sm active:scale-95 animate-scale-in"
+                         className="px-4 py-2 bg-[var(--surface-elevated)] border border-[var(--border-primary)] rounded-lg text-[var(--text-secondary)] text-sm font-medium hover:border-[var(--interactive-accent)] hover:bg-[var(--interactive-bg-active)] hover:text-[var(--interactive-accent)] transition-all shadow-sm active:scale-95 animate-scale-in"
                          style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
                        >
                          {word.trim()}
@@ -301,16 +301,16 @@ export const MagicBar: React.FC<MagicBarProps> = ({
                      ))}
                    </div>
                 ) : (
-                   <div className="bg-white p-4 rounded-lg border border-[var(--ink-100)] shadow-sm">
-                      <p className="text-[var(--ink-800)] font-serif text-lg leading-relaxed">{helpResult}</p>
+                   <div className="bg-[var(--surface-elevated)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm">
+                      <p className="text-[var(--text-primary)] font-serif text-lg leading-relaxed">{helpResult}</p>
                    </div>
                 )}
               </div>
             )}
           </div>
           
-          {/* Light Caret */}
-          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--parchment-50)] rotate-45 border-b border-r border-[var(--ink-200)]"></div>
+          {/* Caret */}
+          <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--glass-bg)] rotate-45 border-b border-r border-[var(--glass-border)]"></div>
         </div>
       )}
     </div>

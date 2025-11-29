@@ -75,16 +75,16 @@ describe('findQuoteRange', () => {
   });
 
   describe('edge cases', () => {
-    it('returns null when whitespace differs and quote is short', () => {
-      // Short quotes without exact match return null
-      // (normalization only helps for longer quotes with partial matching)
+    it('handles whitespace differences via fuzzy matching', () => {
+      // Fuzzy matching can find matches even with whitespace differences
       const text = 'The quick  brown fox.';
-      const quote = 'quick brown'; // won't match due to double space
+      const quote = 'quick brown'; // has single space vs double space in text
       
       const result = findQuoteRange(text, quote);
       
-      // Current behavior: returns null for non-matching short quotes
-      expect(result).toBeNull();
+      // Fuzzy matching finds this despite whitespace difference
+      expect(result).not.toBeNull();
+      expect(result!.start).toBe(4); // 'quick' starts at index 4
     });
 
     it('finds long quotes via normalization', () => {

@@ -100,7 +100,7 @@ describe('prepareAnalysisText', () => {
   });
 
   it('truncates and warns when over limit', () => {
-    const text = 'a'.repeat(50_000); // Over the 45k limit
+    const text = 'a'.repeat(3_500_000); // Over the 3M limit
     const result = prepareAnalysisText(text);
     
     expect(result.text.length).toBeLessThan(text.length);
@@ -109,14 +109,14 @@ describe('prepareAnalysisText', () => {
   });
 
   it('warning includes removed character count', () => {
-    const text = 'a'.repeat(50_000);
+    const text = 'a'.repeat(3_500_000);
     const result = prepareAnalysisText(text);
     
     expect(result.warning).toMatch(/\d+.*characters/);
   });
 
   it('warning includes percentage removed', () => {
-    const text = 'a'.repeat(50_000);
+    const text = 'a'.repeat(3_500_000);
     const result = prepareAnalysisText(text);
     
     expect(result.warning).toMatch(/\d+%/);

@@ -51,7 +51,7 @@ describe('useAgentService', () => {
     const onToolAction = vi.fn().mockResolvedValue('Successfully updated the manuscript');
 
     const { result } = renderHook(() => useAgentService('Hello world', {
-      chapters: [{ title: 'Chapter 1', content: 'Hello world' }],
+      chapters: [{ id: 'ch1', projectId: 'p1', title: 'Chapter 1', content: 'Hello world', order: 0, updatedAt: Date.now() }],
       analysis: null,
       onToolAction,
     }));
@@ -80,7 +80,7 @@ describe('useAgentService', () => {
     const onToolAction = vi.fn().mockResolvedValue('done');
 
     const { result } = renderHook(() => useAgentService('Sample', {
-      chapters: [{ title: 'One', content: 'Sample' }],
+      chapters: [{ id: 'ch1', projectId: 'p1', title: 'One', content: 'Sample', order: 0, updatedAt: Date.now() }],
       onToolAction,
       analysis: null,
     }));
@@ -105,7 +105,7 @@ describe('useAgentService', () => {
     mockSendMessage.mockImplementation(async () => ({ text: 'Hello' }));
 
     const { result } = renderHook(() => useAgentService('Text', {
-      chapters: [{ title: 'One', content: 'Text' }],
+      chapters: [{ id: 'ch1', projectId: 'p1', title: 'One', content: 'Text', order: 0, updatedAt: Date.now() }],
       onToolAction: vi.fn(),
       analysis: null,
       initialPersona: DEFAULT_PERSONAS[0],

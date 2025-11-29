@@ -26,7 +26,7 @@ type AgentAction =
   | { action: 'append_to_manuscript'; params: { text_to_add: string; description?: string } }
   | { action: 'undo_last_change'; params?: undefined };
 
-interface UseDraftSmithEngineProps {
+interface UseQuillAIEngineProps {
   // Use refs for values that need to be current in async operations
   getCurrentText: () => string;
   currentProject: ProjectContext | null;
@@ -60,7 +60,7 @@ const calculateTextReplacement = (
   return originalText.replace(searchText, replacementText);
 };
 
-export function useDraftSmithEngine({
+export function useQuillAIEngine({
   getCurrentText,
   currentProject,
   activeChapterId,
@@ -69,7 +69,7 @@ export function useDraftSmithEngine({
   commit,
   selectionRange,
   clearSelection
-}: UseDraftSmithEngineProps) {
+}: UseQuillAIEngineProps) {
   
   const { trackUsage } = useUsage();
 

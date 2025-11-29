@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useEditor, useEngine, findQuoteRange } from '@/features/shared';
 import { useProjectStore } from '@/features/project';
 import { RichTextEditor } from './RichTextEditor';
@@ -30,7 +31,9 @@ export const EditorWorkspace: React.FC = () => {
         activeHighlight,
         setEditor,
         clearSelection,
-        editor 
+        editor,
+        isZenMode,
+        toggleZenMode
     } = useEditor();
 
     const { getActiveChapter, currentProject } = useProjectStore();
@@ -39,6 +42,7 @@ export const EditorWorkspace: React.FC = () => {
     const activeChapter = getActiveChapter();
 
     const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
+    const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,10 +50,20 @@ export const EditorWorkspace: React.FC = () => {
             e.preventDefault();
             setIsFindReplaceOpen(true);
           }
+          // Ctrl/Cmd + Shift + Z to toggle Zen Mode
+          if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') {
+            e.preventDefault();
+            toggleZenMode();
+          }
+          // Escape to exit Zen Mode
+          if (e.key === 'Escape' && isZenMode) {
+            e.preventDefault();
+            toggleZenMode();
+          }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [toggleZenMode, isZenMode]);
 
     const analysisHighlights = useMemo(() => {
         const highlights: Array<{start: number; end: number; color: string; title: string}> = [];
@@ -74,36 +88,64 @@ export const EditorWorkspace: React.FC = () => {
     }, [activeChapter, currentText, contradictions]);
 
     return (
-        <div className="flex-1 flex flex-col min-w-0 bg-[var(--parchment-200)] relative">
-            <header className="h-14 border-b border-[var(--ink-100)] flex items-center justify-between px-6 bg-[var(--parchment-50)] shrink-0">
-               <div className="flex items-center gap-3">
-                 <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--ink-900)]">
-                   {activeChapter?.title || 'No Active Chapter'}
-                 </h2>
-                 {currentProject?.setting && (
-                   <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--magic-100)] text-[var(--magic-500)] font-medium">
-                     {currentProject.setting.timePeriod} • {currentProject.setting.location}
-                   </span>
-                 )}
-               </div>
-               
-               <div className="flex items-center gap-4">
-                  <span className="text-[var(--text-sm)] text-[var(--ink-400)] font-medium">
-                     {currentText.split(/\s+/).filter(w => w.length > 0).length} words
-                  </span>
-                  <button 
-                    onClick={engineActions.runAnalysis}
-                    disabled={engineState.isAnalyzing}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
-                  >
-                    {engineState.isAnalyzing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"/> : <Icons.Wand />}
-                    Deep Analysis
-                  </button>
-               </div>
-            </header>
+        <div className={`flex-1 flex flex-col min-w-0 bg-[var(--parchment-200)] relative transition-all duration-500 ${isZenMode ? 'items-center' : ''}`}>
+            {/* Header - Auto-hide in Zen Mode */}
+            <AnimatePresence>
+              {(!isZenMode || isHeaderHovered) && (
+                <motion.header 
+                    initial={isZenMode ? { y: -60, opacity: 0 } : false}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -60, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className={`h-14 border-b border-[var(--ink-100)] flex items-center justify-between px-6 bg-[var(--parchment-50)] shrink-0 w-full ${
+                      isZenMode ? 'fixed top-0 left-0 right-0 z-50' : ''
+                    }`}
+                    onMouseEnter={() => isZenMode && setIsHeaderHovered(true)}
+                    onMouseLeave={() => setIsHeaderHovered(false)}
+                >
+                   <div className="flex items-center gap-3">
+                     <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--ink-900)]">
+                       {activeChapter?.title || 'No Active Chapter'}
+                     </h2>
+                     {currentProject?.setting && (
+                       <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--magic-100)] text-[var(--magic-500)] font-medium">
+                         {currentProject.setting.timePeriod} • {currentProject.setting.location}
+                       </span>
+                     )}
+                   </div>
+                   
+                   <div className="flex items-center gap-4">
+                      <span className="text-[var(--text-sm)] text-[var(--ink-400)] font-medium">
+                         {currentText.split(/\s+/).filter(w => w.length > 0).length} words
+                      </span>
+                      <button 
+                        onClick={engineActions.runAnalysis}
+                        disabled={engineState.isAnalyzing}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
+                      >
+                        {engineState.isAnalyzing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"/> : <Icons.Wand />}
+                        Deep Analysis
+                      </button>
+                   </div>
+                </motion.header>
+              )}
+            </AnimatePresence>
+            
+            {/* Invisible hover zone at top for Zen Mode header */}
+            {isZenMode && (
+              <div 
+                className="fixed top-0 left-0 right-0 h-8 z-40"
+                onMouseEnter={() => setIsHeaderHovered(true)}
+              />
+            )}
 
-            <div className="flex-1 overflow-y-auto p-8 relative" onClick={clearSelection}>
-               <div className="max-w-3xl mx-auto min-h-[calc(100vh-10rem)] relative" onClick={(e) => e.stopPropagation()}>
+            <div className={`flex-1 overflow-y-auto p-8 relative transition-all duration-500 w-full ${isZenMode ? 'pt-12' : ''}`} onClick={clearSelection}>
+               <div 
+                 className={`mx-auto min-h-[calc(100vh-10rem)] relative transition-all duration-500 ${
+                   isZenMode ? 'max-w-4xl' : 'max-w-3xl'
+                 }`} 
+                 onClick={(e) => e.stopPropagation()}
+               >
                  <FindReplaceModal 
                     isOpen={isFindReplaceOpen} 
                     onClose={() => setIsFindReplaceOpen(false)}
@@ -120,6 +162,7 @@ export const EditorWorkspace: React.FC = () => {
                     setEditorRef={setEditor}
                     activeHighlight={activeHighlight}
                     analysisHighlights={analysisHighlights}
+                    isZenMode={isZenMode}
                   />
     
                   {selectionRange && selectionPos && (

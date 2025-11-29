@@ -54,7 +54,7 @@ export interface EditorContextValue {
   // Computed Context (for agent)
   getEditorContext: () => EditorContextType;
 
-  // DraftSmith 3.0: Branching
+  // Quill AI 3.0: Branching
   branches: Branch[];
   activeBranchId: string | null;
   isOnMain: boolean;
@@ -64,11 +64,15 @@ export interface EditorContextValue {
   deleteBranch: (branchId: string) => void;
   renameBranch: (branchId: string, newName: string) => void;
 
-  // DraftSmith 3.0: Inline Comments
+  // Quill AI 3.0: Inline Comments
   inlineComments: InlineComment[];
   setInlineComments: (comments: InlineComment[]) => void;
   dismissComment: (commentId: string) => void;
   clearComments: () => void;
+
+  // Quill AI 3.0: Zen Mode
+  isZenMode: boolean;
+  toggleZenMode: () => void;
 }
 
 const EditorContext = createContext<EditorContextValue | undefined>(undefined);
@@ -171,7 +175,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     totalLength: currentText.length
   }), [cursorPosition, selectionRange, currentText.length]);
 
-  // DraftSmith 3.0: Branching State
+  // Quill AI 3.0: Branching State
   const [branches, setBranches] = useState<Branch[]>(activeChapter?.branches || []);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(activeChapter?.activeBranchId || null);
   const [mainContent, setMainContent] = useState(activeChapter?.content || '');
@@ -235,7 +239,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ));
   }, []);
 
-  // DraftSmith 3.0: Inline Comments State
+  // Quill AI 3.0: Inline Comments State
   const [inlineComments, setInlineComments] = useState<InlineComment[]>(activeChapter?.comments || []);
 
   React.useEffect(() => {
@@ -243,6 +247,10 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setInlineComments(activeChapter.comments || []);
     }
   }, [activeChapterId, activeChapter]);
+
+  // Quill AI 3.0: Zen Mode State
+  const [isZenMode, setIsZenMode] = useState(false);
+  const toggleZenMode = useCallback(() => setIsZenMode(prev => !prev), []);
 
   const dismissComment = useCallback((commentId: string) => {
     setInlineComments(prev => prev.map(c => 
@@ -299,6 +307,9 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setInlineComments,
     dismissComment,
     clearComments,
+    // Zen Mode
+    isZenMode,
+    toggleZenMode,
   };
 
   return (

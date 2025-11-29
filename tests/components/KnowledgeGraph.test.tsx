@@ -3,13 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { KnowledgeGraph } from '@/features/lore/components/KnowledgeGraph';
 import { useProjectStore } from '@/features/project';
 import type { CharacterProfile } from '@/types';
-import { vi, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock('@/features/project', () => ({
   useProjectStore: vi.fn(),
 }));
 
-const mockedUseProjectStore = useProjectStore as MockedFunction<typeof useProjectStore>;
+const mockedUseProjectStore = vi.mocked(useProjectStore);
 
 const createMockContext = () => {
   return {
@@ -44,7 +44,7 @@ describe('KnowledgeGraph', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockContext = createMockContext();
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext);
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext) as any;
     HTMLElement.prototype.getBoundingClientRect = vi.fn(() => ({
       width: 500,
       height: 400,

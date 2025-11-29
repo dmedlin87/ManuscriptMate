@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarTab, AnalysisResult, EditorContext, HistoryItem } from '@/types';
 import { ProjectSidebar, useProjectStore } from '@/features/project';
 import { AnalysisPanel } from '@/features/analysis';
@@ -33,7 +34,9 @@ const Icons = {
   History: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>,
   Mic: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
   Wand: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5l5 5"/><path d="M2.5 19.5l9.5-9.5"/><path d="M7 6l1 1"/><path d="M14 4l.5.5"/><path d="M17 7l-.5.5"/><path d="M4 9l.5.5"/></svg>,
-  Close: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  Close: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Sun: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>,
+  Moon: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
 };
 
 export const EditorLayout: React.FC<EditorLayoutProps> = ({
@@ -113,13 +116,13 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
     }, [activeChapter, currentText, contradictions]);
 
   return (
-    <div className="flex w-full h-full bg-[var(--parchment-200)] text-[var(--ink-800)] font-sans">
+    <div className="flex w-full h-full bg-[var(--surface-tertiary)] text-[var(--text-primary)] font-sans">
       
       {/* 1. Navigation Rail (Leftmost) */}
-      <nav className="w-16 bg-[var(--parchment-50)] border-r border-[var(--ink-100)] flex flex-col items-center py-6 gap-2 shrink-0 z-40">
+      <nav className="w-16 bg-[var(--nav-bg)] border-r border-[var(--border-primary)] flex flex-col items-center py-6 gap-2 shrink-0 z-40">
         <button
           onClick={onHomeClick}
-          className="w-10 h-10 rounded-xl bg-[var(--ink-900)] text-[var(--magic-400)] flex items-center justify-center shadow-md mb-4 hover:scale-105 transition-transform"
+          className="w-10 h-10 rounded-xl bg-[var(--interactive-accent)] text-[var(--text-inverse)] flex items-center justify-center shadow-md mb-4 hover:scale-105 transition-transform"
           title="Library"
         >
           <Icons.Wand />
@@ -137,48 +140,58 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
             title={item.label}
             className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all relative ${
               activeTab === item.tab 
-                ? 'bg-[var(--magic-100)] text-[var(--magic-500)]' 
-                : 'text-[var(--ink-400)] hover:bg-[var(--parchment-200)] hover:text-[var(--ink-600)]'
+                ? 'bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)]' 
+                : 'text-[var(--text-tertiary)] hover:bg-[var(--interactive-bg)] hover:text-[var(--text-secondary)]'
             }`}
           >
             {item.icon}
             {activeTab === item.tab && (
-              <div className="absolute right-[-13px] top-1/2 -translate-y-1/2 w-1 h-5 bg-[var(--magic-400)] rounded-l-sm" />
+              <div className="absolute right-[-13px] top-1/2 -translate-y-1/2 w-1 h-5 bg-[var(--interactive-accent)] rounded-l-sm" />
             )}
           </button>
         ))}
       </nav>
 
       {/* 2. Chapter Sidebar */}
-      {!isSidebarCollapsed && (
-        <ProjectSidebar 
-          collapsed={isSidebarCollapsed} 
-          toggleCollapsed={onToggleSidebar} 
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {!isSidebarCollapsed && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 'auto', opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="shrink-0 overflow-hidden"
+          >
+            <ProjectSidebar 
+              collapsed={isSidebarCollapsed} 
+              toggleCollapsed={onToggleSidebar} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Editor Surface (Center) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[var(--parchment-200)] relative">
-        <header className="h-14 border-b border-[var(--ink-100)] flex items-center justify-between px-6 bg-[var(--parchment-50)] shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[var(--editor-bg)] relative">
+        <header className="h-14 border-b border-[var(--border-primary)] flex items-center justify-between px-6 bg-[var(--surface-primary)] shrink-0">
            <div className="flex items-center gap-3">
-             <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--ink-900)]">
+             <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--text-primary)]">
                {activeChapter?.title || 'No Active Chapter'}
              </h2>
              {currentProject?.setting && (
-               <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--magic-100)] text-[var(--magic-500)] font-medium">
+               <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)] font-medium">
                  {currentProject.setting.timePeriod} • {currentProject.setting.location}
                </span>
              )}
            </div>
            
            <div className="flex items-center gap-4">
-              <span className="text-[var(--text-sm)] text-[var(--ink-400)] font-medium">
+              <span className="text-[var(--text-sm)] text-[var(--text-tertiary)] font-medium">
                  {currentText.split(/\s+/).filter(w => w.length > 0).length} words
               </span>
               <button 
                 onClick={engineActions.runAnalysis}
                 disabled={engineState.isAnalyzing}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--interactive-accent)] text-[var(--text-inverse)] text-[var(--text-sm)] font-medium hover:bg-[var(--interactive-accent-hover)] disabled:opacity-70 transition-colors shadow-sm"
               >
                 {engineState.isAnalyzing ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"/> : <Icons.Wand />}
                 Deep Analysis
@@ -224,61 +237,67 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
         </div>
       </div>
 
-      {/* 4. Right Panel (Tools) */}
-      {!isToolsCollapsed && (
-        <aside className="w-[380px] bg-[var(--parchment-50)] border-l border-[var(--ink-100)] flex flex-col shadow-xl z-30 shrink-0">
-          <div className="h-14 border-b border-[var(--ink-100)] flex items-center px-5 bg-[var(--parchment-50)] shrink-0">
-            <h3 className="text-[var(--text-sm)] font-semibold text-[var(--ink-600)] uppercase tracking-wide">
-              {activeTab}
-            </h3>
-          </div>
-          <div className="flex-1 overflow-hidden relative">
-            {activeTab === SidebarTab.ANALYSIS && (
-              <AnalysisPanel 
-                analysis={activeChapter?.lastAnalysis || null} 
-                isLoading={engineState.isAnalyzing} 
-                currentText={currentText}
-                onNavigate={handleNavigateToIssue} 
-              />
-            )}
-            {activeTab === SidebarTab.CHAT && (
-              <ChatInterface 
-                editorContext={editorContext} 
-                fullText={currentText} 
-                onAgentAction={engineActions.handleAgentAction} 
-                lore={currentProject?.lore}
-                chapters={chapters}
-                analysis={activeChapter?.lastAnalysis}
-              />
-            )}
-            {activeTab === SidebarTab.HISTORY && (
-              <ActivityFeed 
-                history={history} 
-                onRestore={restore} 
-                onInspect={handleInspectHistory} 
-              />
-            )}
-            {activeTab === SidebarTab.VOICE && <VoiceMode />}
-          </div>
-        </aside>
-      )}
+      {/* 4. Right Panel (Tools) - Animated */}
+      <AnimatePresence mode="wait">
+        {!isToolsCollapsed && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0, x: 50 }}
+            animate={{ width: 380, opacity: 1, x: 0 }}
+            exit={{ width: 0, opacity: 0, x: 50 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="glass-strong border-l-0 flex flex-col z-30 shrink-0 overflow-hidden"
+          >
+            <div className="h-14 border-b border-[var(--glass-border)] flex items-center px-5 shrink-0">
+              <h3 className="text-[var(--text-sm)] font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                {activeTab}
+              </h3>
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              {activeTab === SidebarTab.ANALYSIS && (
+                <AnalysisPanel 
+                  analysis={activeChapter?.lastAnalysis || null} 
+                  isLoading={engineState.isAnalyzing} 
+                  currentText={currentText}
+                  onNavigate={handleNavigateToIssue} 
+                />
+              )}
+              {activeTab === SidebarTab.CHAT && (
+                <ChatInterface 
+                  editorContext={editorContext} 
+                  fullText={currentText} 
+                  onAgentAction={engineActions.handleAgentAction} 
+                  lore={currentProject?.lore}
+                  chapters={chapters}
+                  analysis={activeChapter?.lastAnalysis}
+                />
+              )}
+              {activeTab === SidebarTab.HISTORY && (
+                <ActivityFeed 
+                  history={history} 
+                  onRestore={restore} 
+                  onInspect={handleInspectHistory} 
+                />
+              )}
+              {activeTab === SidebarTab.VOICE && <VoiceMode />}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
-      {/* Diff Modals (Keep existing logic, update styles slightly) */}
+      {/* Diff Modals */}
       {engineState.pendingDiff && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--ink-900)]/60 backdrop-blur-sm p-4 animate-fade-in">
-             {/* ...existing diff modal with updated colors... */}
-             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden animate-scale-in">
-                 <div className="p-4 border-b border-[var(--ink-100)] flex justify-between items-center bg-[var(--parchment-50)]">
-                     <h3 className="font-serif font-bold text-[var(--ink-800)]">Review Agent Suggestions</h3>
-                     <button onClick={engineActions.rejectDiff} className="text-[var(--ink-400)] hover:text-[var(--ink-600)]"><Icons.Close /></button> 
-                     {/* Used Home icon as temporary placeholder for X or close */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] backdrop-blur-sm p-4 animate-fade-in">
+             <div className="bg-[var(--surface-elevated)] rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden animate-scale-in">
+                 <div className="p-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--surface-primary)]">
+                     <h3 className="font-serif font-bold text-[var(--text-primary)]">Review Agent Suggestions</h3>
+                     <button onClick={engineActions.rejectDiff} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"><Icons.Close /></button>
                  </div>
-                 <div className="flex-1 overflow-y-auto p-6 bg-white">
+                 <div className="flex-1 overflow-y-auto p-6 bg-[var(--surface-elevated)]">
                      <VisualDiff original={engineState.pendingDiff.original} modified={engineState.pendingDiff.modified} />
                  </div>
-                 <div className="p-4 border-t border-[var(--ink-100)] bg-[var(--parchment-50)] flex justify-end gap-3">
-                     <button onClick={engineActions.rejectDiff} className="px-4 py-2 rounded-lg border border-[var(--ink-200)] text-[var(--ink-600)] hover:bg-[var(--parchment-100)]">Reject</button>
-                     <button onClick={engineActions.acceptDiff} className="px-4 py-2 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] hover:bg-[var(--ink-800)]">Accept</button>
+                 <div className="p-4 border-t border-[var(--border-primary)] bg-[var(--surface-primary)] flex justify-end gap-3">
+                     <button onClick={engineActions.rejectDiff} className="px-4 py-2 rounded-lg border border-[var(--border-secondary)] text-[var(--text-secondary)] hover:bg-[var(--interactive-bg)]">Reject</button>
+                     <button onClick={engineActions.acceptDiff} className="px-4 py-2 rounded-lg bg-[var(--interactive-accent)] text-[var(--text-inverse)] hover:bg-[var(--interactive-accent-hover)]">Accept</button>
                  </div>
              </div>
           </div>

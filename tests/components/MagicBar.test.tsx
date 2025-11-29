@@ -6,7 +6,7 @@ import { MagicBar } from '@/features/editor/components/MagicBar';
 const mockViewportCollision = vi.fn(() => ({ top: 50, left: 50, adjusted: false, adjustments: {} }));
 
 vi.mock('@/features/shared', () => ({
-  useViewportCollision: (...args: unknown[]) => mockViewportCollision(...args),
+  useViewportCollision: () => mockViewportCollision(),
 }));
 
 describe('MagicBar', () => {

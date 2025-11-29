@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage, EditorContext, AnalysisResult } from '@/types';
+
+// Message animation variants
+const messageVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { type: 'spring', stiffness: 400, damping: 30 }
+  },
+  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.15 } }
+};
 import { createAgentSession } from '@/services/gemini/agent';
 import { Chat } from "@google/genai";
 import { Lore, Chapter } from '@/types/schema';
@@ -232,39 +245,72 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-              msg.text.startsWith('🛠️') 
-                ? 'bg-gray-50 text-gray-500 border border-gray-100 font-mono text-xs py-2 w-full max-w-none text-center' 
-                : msg.text.startsWith('📝')
-                  ? 'bg-indigo-50 text-indigo-700 text-xs py-2 w-full max-w-none text-center italic border border-indigo-100'
-                  : msg.text.startsWith('❌')
-                    ? 'bg-red-50 text-red-600 text-xs py-2 w-full max-w-none text-center italic border border-red-100'
-                    : msg.role === 'user' 
-                      ? 'bg-indigo-600 text-white rounded-br-none' 
-                      : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none'
-            }`}>
-              {msg.text}
-            </div>
-          </div>
-        ))}
+        <AnimatePresence mode="popLayout">
+          {messages.map((msg, idx) => (
+            <motion.div 
+              key={`${idx}-${msg.timestamp.getTime()}`}
+              variants={messageVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              layout
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <motion.div 
+                className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                  msg.text.startsWith('🛠️') 
+                    ? 'bg-[var(--surface-secondary)] text-[var(--text-tertiary)] border border-[var(--border-primary)] font-mono text-xs py-2 w-full max-w-none text-center' 
+                    : msg.text.startsWith('📝')
+                      ? 'bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)] text-xs py-2 w-full max-w-none text-center italic border border-[var(--border-primary)]'
+                      : msg.text.startsWith('❌')
+                        ? 'bg-[var(--error-100)] text-[var(--error-500)] text-xs py-2 w-full max-w-none text-center italic border border-[var(--error-100)]'
+                        : msg.role === 'user' 
+                          ? 'bg-[var(--interactive-accent)] text-[var(--text-inverse)] rounded-br-none' 
+                          : 'bg-[var(--surface-elevated)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-bl-none'
+                }`}
+                whileHover={{ scale: 1.01 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              >
+                {msg.text}
+              </motion.div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* Loading / State Indicators */}
-        {agentState !== 'idle' && (
-          <div className="flex justify-start">
-            <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 rounded-bl-none flex items-center gap-3">
-               <div className="flex space-x-1">
-                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div>
-                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></div>
-               </div>
-               <span className="text-xs text-indigo-500 font-medium animate-pulse">
-                  {agentState === 'thinking' ? 'Reasoning...' : 'Editing Manuscript...'}
-               </span>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {agentState !== 'idle' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex justify-start"
+            >
+              <div className="bg-[var(--surface-secondary)] border border-[var(--border-primary)] rounded-2xl px-4 py-3 rounded-bl-none flex items-center gap-3">
+                 <div className="flex space-x-1">
+                   <motion.div 
+                     className="w-2 h-2 bg-[var(--interactive-accent)] rounded-full"
+                     animate={{ y: [0, -6, 0] }}
+                     transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                   />
+                   <motion.div 
+                     className="w-2 h-2 bg-[var(--interactive-accent)] rounded-full"
+                     animate={{ y: [0, -6, 0] }}
+                     transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
+                   />
+                   <motion.div 
+                     className="w-2 h-2 bg-[var(--interactive-accent)] rounded-full"
+                     animate={{ y: [0, -6, 0] }}
+                     transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                   />
+                 </div>
+                 <span className="text-xs text-[var(--interactive-accent)] font-medium">
+                    {agentState === 'thinking' ? 'Reasoning...' : 'Editing Manuscript...'}
+                 </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 

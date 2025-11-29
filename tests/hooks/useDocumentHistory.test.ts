@@ -530,7 +530,7 @@ describe('useDocumentHistory', () => {
       const storedHistory = [
         { id: '1', timestamp: Date.now(), description: 'Old edit', author: 'User', previousContent: 'a', newContent: 'b' }
       ];
-      mockStorage['draftsmith_history_chapter-1'] = JSON.stringify(storedHistory);
+      mockStorage['quillai_history_chapter-1'] = JSON.stringify(storedHistory);
       
       const { result } = renderHook(() => 
         useDocumentHistory('Initial', 'chapter-1', mockOnSave)
@@ -541,7 +541,7 @@ describe('useDocumentHistory', () => {
     });
 
     it('handles invalid stored JSON gracefully', () => {
-      mockStorage['draftsmith_history_chapter-1'] = 'not valid json';
+      mockStorage['quillai_history_chapter-1'] = 'not valid json';
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       
       const { result } = renderHook(() => 

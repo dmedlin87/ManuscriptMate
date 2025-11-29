@@ -1,4 +1,4 @@
-# DraftSmith Documentation
+# Quill AI Documentation
 
 This folder contains project documentation and development guides.
 

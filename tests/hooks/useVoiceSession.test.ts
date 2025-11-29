@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type MockedFunction } from 'vitest';
 import { useVoiceSession } from '@/features/voice/hooks/useVoiceSession';
 import { connectLiveSession } from '@/services/gemini/audio';
 
@@ -98,7 +98,7 @@ describe('useVoiceSession', () => {
     const sendAudio = vi.fn();
     const disconnect = vi.fn();
     const liveCallbacks: { onClose?: () => void } = {};
-    (connectLiveSession as vi.MockedFunction<typeof connectLiveSession>).mockImplementation(async (_onAudio, onClose) => {
+    (connectLiveSession as MockedFunction<typeof connectLiveSession>).mockImplementation(async (_onAudio, onClose) => {
       liveCallbacks.onClose = onClose;
       return { sendAudio, disconnect } as any;
     });
@@ -132,7 +132,7 @@ describe('useVoiceSession', () => {
 
   it('stops session and cleans up resources', async () => {
     const disconnect = vi.fn();
-    (connectLiveSession as vi.MockedFunction<typeof connectLiveSession>).mockResolvedValue({ sendAudio: vi.fn(), disconnect } as any);
+    (connectLiveSession as MockedFunction<typeof connectLiveSession>).mockResolvedValue({ sendAudio: vi.fn(), disconnect } as any);
 
     const { result } = renderHook(() => useVoiceSession());
 

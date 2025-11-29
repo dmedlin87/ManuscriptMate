@@ -102,7 +102,7 @@ describe('Gemini Client - Invalid Configuration', () => {
     }
     
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DraftSmith API]')
+      expect.stringContaining('[Quill AI API]')
     );
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid format')

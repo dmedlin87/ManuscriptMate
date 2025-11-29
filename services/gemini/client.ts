@@ -17,7 +17,7 @@ const apiKey = getApiKey();
 const validationError = validateApiKey(apiKey);
 if (validationError) {
   // Log for debugging context
-  console.error(`[DraftSmith API] ${validationError}`);
+  console.error(`[Quill AI API] ${validationError}`);
   // Throw a descriptive error that the UI can catch
   throw new Error(`API Configuration Error: ${validationError}. Please set your VITE_GEMINI_API_KEY environment variable.`);
 }

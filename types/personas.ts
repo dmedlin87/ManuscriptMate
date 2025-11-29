@@ -1,5 +1,5 @@
 /**
- * Persona Types for DraftSmith 3.0
+ * Persona Types for Quill AI 3.0
  * Multi-persona agent framework with specialized critique styles
  */
 

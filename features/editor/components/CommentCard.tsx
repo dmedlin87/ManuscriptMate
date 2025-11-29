@@ -1,5 +1,5 @@
 /**
- * CommentCard - Floating comment popup for DraftSmith 3.0
+ * CommentCard - Floating comment popup for Quill AI 3.0
  * 
  * Displays AI critique when clicking on highlighted text.
  * Uses viewport collision detection for smart positioning.

@@ -29,7 +29,7 @@ describe('useMagicEditor', () => {
   it('handles rewrite flow and stores variations', async () => {
     vi.mocked(rewriteText).mockResolvedValue({
       result: ['Variation A', 'Variation B'],
-      usage: { tokens: 10 },
+      usage: { promptTokenCount: 5, totalTokenCount: 10 },
     });
 
     const { result } = renderHook(() => useMagicEditor({
@@ -50,13 +50,13 @@ describe('useMagicEditor', () => {
       expect(result.current.state.isMagicLoading).toBe(false);
     });
 
-    expect(trackUsage).toHaveBeenCalledWith({ tokens: 10 });
+    expect(trackUsage).toHaveBeenCalledWith({ promptTokenCount: 5, totalTokenCount: 10 });
   });
 
   it('applies variation to selection and commits update', async () => {
     vi.mocked(rewriteText).mockResolvedValue({
       result: ['Variation'],
-      usage: { tokens: 1 },
+      usage: { promptTokenCount: 1, totalTokenCount: 1 },
     });
 
     const { result } = renderHook(() => useMagicEditor({
@@ -84,7 +84,7 @@ describe('useMagicEditor', () => {
   it('prevents applying variation when selection is stale', async () => {
     vi.mocked(rewriteText).mockResolvedValue({
       result: ['Variation'],
-      usage: { tokens: 1 },
+      usage: { promptTokenCount: 1, totalTokenCount: 1 },
     });
 
     const { result } = renderHook(() => useMagicEditor({
@@ -112,7 +112,7 @@ describe('useMagicEditor', () => {
   it('handles contextual help requests', async () => {
     vi.mocked(getContextualHelp).mockResolvedValue({
       result: 'Definition',
-      usage: { tokens: 5 },
+      usage: { promptTokenCount: 3, totalTokenCount: 5 },
     });
 
     const { result } = renderHook(() => useMagicEditor({
@@ -132,6 +132,6 @@ describe('useMagicEditor', () => {
       expect(result.current.state.isMagicLoading).toBe(false);
     });
 
-    expect(trackUsage).toHaveBeenCalledWith({ tokens: 5 });
+    expect(trackUsage).toHaveBeenCalledWith({ promptTokenCount: 3, totalTokenCount: 5 });
   });
 });

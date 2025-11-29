@@ -19,7 +19,7 @@ export function getApiKey(): string {
   
   if (!key) {
     console.warn(
-      '[DraftSmith] No API key configured. Set GEMINI_API_KEY in your environment.'
+      '[Quill AI] No API key configured. Set GEMINI_API_KEY in your environment.'
     );
   }
   
@@ -47,7 +47,7 @@ export function validateApiKey(key: string): string | null {
  */
 export const ApiDefaults = {
   /** Maximum text length to send to analysis (characters) */
-  maxAnalysisLength: 45_000,
+  maxAnalysisLength: 3_000_000,
   
   /** Estimated characters per token (rough approximation) */
   charsPerToken: 4,

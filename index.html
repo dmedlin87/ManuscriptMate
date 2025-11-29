@@ -3,14 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DraftSmith AI - Intelligent Book Editor</title>
+    <title>Quill AI - Intelligent Book Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
       :root {
-        /* Color System - Warm Literary Palette */
+        /* ═══════════════════════════════════════════════════════════
+           BASE PALETTE - Raw color values (theme-agnostic)
+           ═══════════════════════════════════════════════════════════ */
+        
+        /* Ink Scale - Warm charcoals */
         --ink-950: #0a0908;
         --ink-900: #1a1815;
         --ink-800: #2d2a26;
@@ -23,26 +27,48 @@
         --ink-100: #e8e6e3;
         --ink-50: #f6f5f3;
         
-        /* Parchment - Warm whites */
+        /* Parchment Scale - Warm whites */
         --parchment-50: #fdfcfa;
         --parchment-100: #faf8f5;
         --parchment-200: #f5f2ed;
+        --parchment-300: #eae5dc;
+        --parchment-400: #ddd6c9;
+        
+        /* Dark Academia Scale - Deep charcoals & obsidian */
+        --obsidian-950: #09090b;
+        --obsidian-900: #111114;
+        --obsidian-800: #18181b;
+        --obsidian-700: #222226;
+        --obsidian-600: #2c2c31;
+        --obsidian-500: #3f3f46;
+        --obsidian-400: #52525b;
+        --obsidian-300: #71717a;
+        --obsidian-200: #a1a1aa;
+        --obsidian-100: #d4d4d8;
         
         /* Accent - Aged Gold / Magic */
+        --magic-600: #a68518;
         --magic-500: #c9a227;
         --magic-400: #dbb635;
         --magic-300: #e8c84d;
         --magic-200: #f2dc8a;
         --magic-100: #faf3d4;
         --magic-glow: rgba(201, 162, 39, 0.4);
+        --magic-glow-dark: rgba(219, 182, 53, 0.25);
         
         /* Semantic - Muted, sophisticated */
         --error-500: #b54248;
+        --error-400: #dc4f56;
         --error-100: #fdeeed;
+        --error-900: #3b1518;
         --success-500: #4a8f6d;
+        --success-400: #5aab82;
         --success-100: #e8f5ee;
+        --success-900: #14291f;
         --warning-500: #b8863b;
+        --warning-400: #d49a47;
         --warning-100: #fdf5e9;
+        --warning-900: #2d1f0a;
         
         /* Typography Scale (1.25 ratio) */
         --text-xs: 0.75rem;
@@ -67,13 +93,6 @@
         --space-16: 4rem;
         --space-20: 5rem;
         
-        /* Elevation System */
-        --shadow-sm: 0 1px 2px rgba(10, 9, 8, 0.04);
-        --shadow-md: 0 2px 4px rgba(10, 9, 8, 0.04), 0 4px 8px rgba(10, 9, 8, 0.06);
-        --shadow-lg: 0 4px 8px rgba(10, 9, 8, 0.04), 0 8px 16px rgba(10, 9, 8, 0.06), 0 16px 32px rgba(10, 9, 8, 0.08);
-        --shadow-xl: 0 8px 16px rgba(10, 9, 8, 0.06), 0 16px 32px rgba(10, 9, 8, 0.08), 0 32px 64px rgba(10, 9, 8, 0.12);
-        --shadow-magic: 0 0 0 1px var(--magic-200), 0 4px 16px var(--magic-glow), 0 8px 32px rgba(201, 162, 39, 0.2);
-        
         /* Radii */
         --radius-sm: 4px;
         --radius-md: 8px;
@@ -89,6 +108,131 @@
         --duration-normal: 250ms;
         --duration-slow: 400ms;
         --duration-slower: 600ms;
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+         LIGHT THEME - Warm Parchment (Default)
+         ═══════════════════════════════════════════════════════════ */
+      :root, [data-theme="light"] {
+        /* Surface colors */
+        --surface-primary: var(--parchment-50);
+        --surface-secondary: var(--parchment-100);
+        --surface-tertiary: var(--parchment-200);
+        --surface-elevated: #ffffff;
+        --surface-overlay: rgba(250, 248, 245, 0.85);
+        
+        /* Text colors */
+        --text-primary: var(--ink-800);
+        --text-secondary: var(--ink-600);
+        --text-tertiary: var(--ink-400);
+        --text-muted: var(--ink-300);
+        --text-inverse: var(--parchment-50);
+        
+        /* Border colors */
+        --border-primary: var(--ink-100);
+        --border-secondary: var(--ink-200);
+        --border-subtle: rgba(45, 42, 38, 0.08);
+        
+        /* Interactive states */
+        --interactive-bg: var(--parchment-200);
+        --interactive-bg-hover: var(--ink-100);
+        --interactive-bg-active: var(--magic-100);
+        --interactive-accent: var(--magic-500);
+        --interactive-accent-hover: var(--magic-400);
+        
+        /* Component specific */
+        --nav-bg: var(--parchment-50);
+        --sidebar-bg: var(--parchment-50);
+        --editor-bg: var(--parchment-200);
+        --card-bg: var(--surface-elevated);
+        --modal-backdrop: rgba(26, 24, 21, 0.6);
+        
+        /* Shadows */
+        --shadow-sm: 0 1px 2px rgba(10, 9, 8, 0.04);
+        --shadow-md: 0 2px 4px rgba(10, 9, 8, 0.04), 0 4px 8px rgba(10, 9, 8, 0.06);
+        --shadow-lg: 0 4px 8px rgba(10, 9, 8, 0.04), 0 8px 16px rgba(10, 9, 8, 0.06), 0 16px 32px rgba(10, 9, 8, 0.08);
+        --shadow-xl: 0 8px 16px rgba(10, 9, 8, 0.06), 0 16px 32px rgba(10, 9, 8, 0.08), 0 32px 64px rgba(10, 9, 8, 0.12);
+        --shadow-magic: 0 0 0 1px var(--magic-200), 0 4px 16px var(--magic-glow), 0 8px 32px rgba(201, 162, 39, 0.2);
+        --shadow-glass: 0 8px 32px rgba(10, 9, 8, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        
+        /* Glassmorphism */
+        --glass-bg: rgba(253, 252, 250, 0.72);
+        --glass-border: rgba(255, 255, 255, 0.5);
+        --glass-blur: 16px;
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+         DARK THEME - Dark Academia
+         ═══════════════════════════════════════════════════════════ */
+      [data-theme="dark"] {
+        /* Surface colors */
+        --surface-primary: var(--obsidian-900);
+        --surface-secondary: var(--obsidian-800);
+        --surface-tertiary: var(--obsidian-700);
+        --surface-elevated: var(--obsidian-800);
+        --surface-overlay: rgba(17, 17, 20, 0.9);
+        
+        /* Text colors */
+        --text-primary: var(--obsidian-100);
+        --text-secondary: var(--obsidian-200);
+        --text-tertiary: var(--obsidian-300);
+        --text-muted: var(--obsidian-400);
+        --text-inverse: var(--obsidian-900);
+        
+        /* Border colors */
+        --border-primary: var(--obsidian-700);
+        --border-secondary: var(--obsidian-600);
+        --border-subtle: rgba(255, 255, 255, 0.06);
+        
+        /* Interactive states */
+        --interactive-bg: var(--obsidian-700);
+        --interactive-bg-hover: var(--obsidian-600);
+        --interactive-bg-active: rgba(201, 162, 39, 0.15);
+        --interactive-accent: var(--magic-400);
+        --interactive-accent-hover: var(--magic-300);
+        
+        /* Component specific */
+        --nav-bg: var(--obsidian-900);
+        --sidebar-bg: var(--obsidian-800);
+        --editor-bg: var(--obsidian-950);
+        --card-bg: var(--obsidian-800);
+        --modal-backdrop: rgba(9, 9, 11, 0.8);
+        
+        /* Remap parchment → obsidian for existing code compatibility */
+        --parchment-50: var(--obsidian-800);
+        --parchment-100: var(--obsidian-900);
+        --parchment-200: var(--obsidian-950);
+        
+        /* Remap ink scale for dark mode */
+        --ink-50: var(--obsidian-100);
+        --ink-100: var(--obsidian-700);
+        --ink-200: var(--obsidian-600);
+        --ink-300: var(--obsidian-400);
+        --ink-400: var(--obsidian-300);
+        --ink-500: var(--obsidian-200);
+        --ink-600: var(--obsidian-200);
+        --ink-700: var(--obsidian-100);
+        --ink-800: var(--obsidian-100);
+        --ink-900: var(--obsidian-50);
+        
+        /* Shadows - deeper for dark mode */
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+        --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.25);
+        --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.25), 0 16px 32px rgba(0, 0, 0, 0.3);
+        --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.25), 0 16px 32px rgba(0, 0, 0, 0.3), 0 32px 64px rgba(0, 0, 0, 0.35);
+        --shadow-magic: 0 0 0 1px rgba(219, 182, 53, 0.3), 0 4px 16px var(--magic-glow-dark), 0 8px 32px rgba(201, 162, 39, 0.15);
+        --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        
+        /* Glassmorphism */
+        --glass-bg: rgba(24, 24, 27, 0.75);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-blur: 20px;
+        
+        /* Semantic colors - darker variants */
+        --error-100: var(--error-900);
+        --success-100: var(--success-900);
+        --warning-100: var(--warning-900);
+        --magic-100: rgba(201, 162, 39, 0.15);
       }
 
       body {
@@ -152,6 +296,48 @@
       
       /* Utilities */
       .paper-shadow { box-shadow: var(--shadow-lg); }
+      
+      /* ═══════════════════════════════════════════════════════════
+         GLASSMORPHISM UTILITY
+         Modern frosted glass effect for floating UI elements
+         ═══════════════════════════════════════════════════════════ */
+      .glass {
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-glass);
+      }
+      
+      .glass-subtle {
+        background: var(--glass-bg);
+        backdrop-filter: blur(calc(var(--glass-blur) * 0.5));
+        -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.5));
+        border: 1px solid var(--glass-border);
+      }
+      
+      .glass-strong {
+        background: var(--glass-bg);
+        backdrop-filter: blur(calc(var(--glass-blur) * 1.5));
+        -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5));
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-glass), 0 0 1px rgba(255, 255, 255, 0.1) inset;
+      }
+      
+      /* Dark mode scrollbar */
+      [data-theme="dark"] ::-webkit-scrollbar-thumb {
+        background: var(--obsidian-600);
+      }
+      [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+        background: var(--obsidian-500);
+      }
+      
+      /* Theme transition */
+      body, .theme-transition, .theme-transition * {
+        transition: background-color var(--duration-slow) var(--ease-out-expo),
+                    border-color var(--duration-slow) var(--ease-out-expo),
+                    color var(--duration-normal) var(--ease-out-expo);
+      }
     </style>
   <script type="importmap">
 {
@@ -172,7 +358,8 @@
     "@tiptap/react": "https://esm.sh/@tiptap/react@2.2.4?external=react,react-dom",
     "tiptap-markdown": "https://esm.sh/tiptap-markdown@0.8.10?external=react,react-dom",
     "@tiptap/pm": "https://esm.sh/@tiptap/pm@2.2.4",
-    "@tiptap/pm/": "https://esm.sh/@tiptap/pm@2.2.4/"
+    "@tiptap/pm/": "https://esm.sh/@tiptap/pm@2.2.4/",
+    "framer-motion": "https://esm.sh/framer-motion@11.0.8?external=react,react-dom"
   }
 }
 </script>

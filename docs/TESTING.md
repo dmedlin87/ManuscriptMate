@@ -1,4 +1,4 @@
-# DraftSmith Testing Plan
+# Quill AI Testing Plan
 
 > Last updated: 2024-11-29  
 > **Current: 348 tests passing**  
@@ -213,7 +213,7 @@ Add to GitHub Actions or similar:
 
 ---
 
-## Progress Tracking
+## Progress Tracking (Quill AI)
 
 Update this section as tests are added:
 

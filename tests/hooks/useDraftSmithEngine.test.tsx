@@ -33,7 +33,7 @@ vi.mock('@/features/editor/hooks/useMagicEditor', () => ({
   })
 }));
 
-import { useDraftSmithEngine } from '@/features/shared/hooks/useDraftSmithEngine';
+import { useQuillAIEngine } from '@/features/shared/hooks// Tests for useQuillAIEngine (formerly useDraftSmithEngine)'
 
 const baseResult = {
   result: {
@@ -49,7 +49,7 @@ const project = {
   manuscriptIndex: undefined,
 };
 
-describe('useDraftSmithEngine', () => {
+describe('useQuillAIEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     analyzeDraftMock.mockResolvedValue(baseResult);
@@ -59,7 +59,7 @@ describe('useDraftSmithEngine', () => {
 
   const getCurrentText = () => 'chapter text';
 
-  const buildHook = () => renderHook(() => useDraftSmithEngine({
+  const buildHook = () => renderHook(() => useQuillAIEngine({
     getCurrentText,
     currentProject: project,
     activeChapterId: 'chapter-1',

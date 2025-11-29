@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useEditor } from './EditorContext';
 import { useProjectStore } from '@/features/project';
-import { useDraftSmithEngine, type PendingDiff } from '../hooks/useDraftSmithEngine';
+import { useQuillAIEngine, type PendingDiff } from '../hooks/useDraftSmithEngine';
 import { useManuscriptIndexer } from '../hooks/useManuscriptIndexer';
 import { Contradiction } from '@/types/schema';
 
@@ -55,8 +55,8 @@ export const EngineProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateProjectLore 
   } = useProjectStore();
 
-  // Initialize the DraftSmith Engine
-  const engine = useDraftSmithEngine({
+  // Initialize the Quill AI Engine
+  const engine = useQuillAIEngine({
     getCurrentText: () => currentText,
     currentProject,
     activeChapterId,

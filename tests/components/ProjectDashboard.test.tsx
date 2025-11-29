@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { ProjectDashboard } from '@/features/project/components/ProjectDashboard';
 import { parseManuscript } from '@/services/manuscriptParser';
 import { useProjectStore } from '@/features/project/store/useProjectStore';
@@ -18,8 +18,8 @@ vi.mock('@/services/manuscriptParser', () => ({
   ]),
 }));
 
-const mockUseProjectStore = useProjectStore as unknown as vi.Mock;
-const mockParseManuscript = parseManuscript as unknown as vi.Mock;
+const mockUseProjectStore = useProjectStore as unknown as Mock;
+const mockParseManuscript = parseManuscript as unknown as Mock;
 
 describe('ProjectDashboard', () => {
   beforeEach(() => {

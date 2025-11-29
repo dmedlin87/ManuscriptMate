@@ -1,5 +1,5 @@
 /**
- * CommentMark - Tiptap Mark Extension for DraftSmith 3.0
+ * CommentMark - Tiptap Mark Extension for Quill AI 3.0
  * 
  * Inline critique system that marks text ranges with AI-generated comments.
  * Comments are stored as mark attributes and rendered as highlighted spans.

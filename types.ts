@@ -175,7 +175,7 @@ export enum SidebarTab {
   HISTORY = 'HISTORY',
   GRAPH = 'GRAPH',
   LORE = 'LORE',
-  BRANCHES = 'BRANCHES', // DraftSmith 3.0
+  BRANCHES = 'BRANCHES', // Quill AI 3.0
 }
 
 export enum MainView {

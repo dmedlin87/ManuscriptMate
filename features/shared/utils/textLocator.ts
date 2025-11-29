@@ -1,9 +1,89 @@
+import { diff_match_patch } from 'diff-match-patch';
 import { AnalysisResult } from '@/types';
 
 export interface TextRange {
   start: number;
   end: number;
 }
+
+const whitespaceRegex = /\s/;
+
+interface NormalizedSegment {
+  char: string;
+  start: number;
+  end: number;
+}
+
+const buildNormalizedMap = (text: string): NormalizedSegment[] => {
+  const segments: NormalizedSegment[] = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    const char = text[cursor];
+
+    if (whitespaceRegex.test(char)) {
+      const blockStart = cursor;
+      while (cursor < text.length && whitespaceRegex.test(text[cursor])) {
+        cursor++;
+      }
+      segments.push({ char: ' ', start: blockStart, end: cursor });
+    } else {
+      segments.push({ char, start: cursor, end: cursor + 1 });
+      cursor++;
+    }
+  }
+
+  return segments;
+};
+
+const buildNormalizedString = (segments: NormalizedSegment[]): string =>
+  segments.map(segment => segment.char).join('');
+
+const collapseWhitespace = (text: string): string =>
+  text.replace(/\s+/g, ' ');
+
+const clampRange = (start: number, length: number, maxLength: number): TextRange | null => {
+  const clampedStart = Math.max(0, start);
+  const clampedEnd = Math.min(maxLength, clampedStart + length);
+
+  if (clampedStart >= clampedEnd) {
+    return null;
+  }
+
+  return { start: clampedStart, end: clampedEnd };
+};
+
+const mapNormalizedRangeToOriginal = (
+  map: NormalizedSegment[],
+  normalizedStart: number,
+  normalizedLength: number,
+  maxLength: number
+): TextRange | null => {
+  if (!map.length || normalizedLength === 0) {
+    return null;
+  }
+
+  const endIndex = normalizedStart + normalizedLength - 1;
+  if (endIndex >= map.length) {
+    return null;
+  }
+
+  const startSegment = map[normalizedStart];
+  const endSegment = map[endIndex];
+
+  if (!startSegment || !endSegment) {
+    return null;
+  }
+
+  const start = Math.max(0, startSegment.start);
+  const end = Math.min(maxLength, endSegment.end);
+
+  if (start >= end) {
+    return null;
+  }
+
+  return { start, end };
+};
 
 /**
  * Attempts to find the best match for a quote within the text.
@@ -12,57 +92,59 @@ export interface TextRange {
 export const findQuoteRange = (fullText: string, quote: string): TextRange | null => {
   if (!fullText || !quote) return null;
 
-  // 1. Try Exact Match
-  let index = fullText.indexOf(quote);
-  if (index !== -1) {
-    return { start: index, end: index + quote.length };
-  }
-
-  // 2. Try Trimmed Match
   const trimmedQuote = quote.trim();
-  index = fullText.indexOf(trimmedQuote);
-  if (index !== -1) {
-    return { start: index, end: index + trimmedQuote.length };
+  if (!trimmedQuote) return null;
+
+  const exactIndex = fullText.indexOf(quote);
+  if (exactIndex !== -1) {
+    return clampRange(exactIndex, quote.length, fullText.length);
   }
 
-  // 3. Try Partial Match (First 20 chars) - helpful if LLM hallucinates end of sentence
+  const trimmedIndex = fullText.indexOf(trimmedQuote);
+  if (trimmedIndex !== -1) {
+    return clampRange(trimmedIndex, trimmedQuote.length, fullText.length);
+  }
+
   if (trimmedQuote.length > 20) {
     const partial = trimmedQuote.substring(0, 20);
-    index = fullText.indexOf(partial);
-    if (index !== -1) {
-        // We found the start. Let's try to verify if it's the right context.
-        // We'll return a highlight for the length of the original quote, 
-        // clamped to the document length.
-        const end = Math.min(fullText.length, index + trimmedQuote.length);
-        return { start: index, end };
+    const partialIndex = fullText.indexOf(partial);
+    if (partialIndex !== -1) {
+      return clampRange(partialIndex, trimmedQuote.length, fullText.length);
     }
   }
 
-  // 4. Normalized Whitespace Match (Heavy operation, use sparingly)
-  // This helps when LLM returns single spaces but doc has newlines
-  const normalize = (s: string) => s.replace(/\s+/g, ' ');
-  const normText = normalize(fullText);
-  const normQuote = normalize(trimmedQuote);
-  
-  index = normText.indexOf(normQuote);
-  
-  if (index !== -1) {
-      // Mapping normalized index back to original index is complex.
-      // We will skip strict mapping for this MVP and rely on the fact 
-      // that index is *roughly* correct, though newlines might offset it.
-      // A safe fallback is to search near this index in the real text.
-      const snippet = trimmedQuote.substring(0, 10);
-      const searchStart = Math.max(0, index - 50);
-      const searchEnd = Math.min(fullText.length, index + 50);
-      const localContext = fullText.substring(searchStart, searchEnd);
-      const localIndex = localContext.indexOf(snippet);
-      
-      if (localIndex !== -1) {
-          return { 
-              start: searchStart + localIndex, 
-              end: searchStart + localIndex + trimmedQuote.length 
-          };
-      }
+  const matcher = new diff_match_patch();
+  const fuzzyIndex = matcher.match_main(fullText, trimmedQuote, 0);
+  if (fuzzyIndex !== -1) {
+    return clampRange(fuzzyIndex, trimmedQuote.length, fullText.length);
+  }
+
+  const normalizedQuote = collapseWhitespace(trimmedQuote);
+  if (!normalizedQuote) {
+    return null;
+  }
+
+  const normalizedMap = buildNormalizedMap(fullText);
+  if (!normalizedMap.length) {
+    return null;
+  }
+
+  const normalizedFull = buildNormalizedString(normalizedMap);
+  if (!normalizedFull) {
+    return null;
+  }
+
+  const normalizedIndex = matcher.match_main(normalizedFull, normalizedQuote, 0);
+  if (normalizedIndex !== -1) {
+    const normalizedRange = mapNormalizedRangeToOriginal(
+      normalizedMap,
+      normalizedIndex,
+      normalizedQuote.length,
+      fullText.length
+    );
+    if (normalizedRange) {
+      return normalizedRange;
+    }
   }
 
   return null;

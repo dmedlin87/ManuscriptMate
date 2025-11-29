@@ -28,7 +28,7 @@ describe('VoiceMode', () => {
       set fillStyle(value: string) {},
       set shadowBlur(value: number) {},
       set shadowColor(value: string) {},
-    } as unknown as CanvasRenderingContext2D));
+    } as unknown as CanvasRenderingContext2D)) as any;
     vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1 as any);
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
   });

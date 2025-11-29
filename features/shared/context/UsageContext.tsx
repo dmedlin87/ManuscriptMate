@@ -17,7 +17,7 @@ export const UsageProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [totalRequestCount, setTotalRequestCount] = useState(0);
 
   useEffect(() => {
-    const stored = localStorage.getItem('draftsmith_usage');
+    const stored = localStorage.getItem('quillai_usage');
     if (stored) {
       try {
         const { prompt, response, requests } = JSON.parse(stored);
@@ -31,7 +31,7 @@ export const UsageProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('draftsmith_usage', JSON.stringify({
+    localStorage.setItem('quillai_usage', JSON.stringify({
       prompt: promptTokens,
       response: responseTokens,
       requests: totalRequestCount

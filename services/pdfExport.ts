@@ -65,7 +65,7 @@ export const generatePDF = (analysis: AnalysisResult, fileName: string) => {
   doc.setFont("times", "bold");
   doc.setFontSize(32);
   doc.setTextColor(30, 30, 70);
-  doc.text("DraftSmith Literary Report", pageWidth / 2, cursorY, { align: "center" });
+  doc.text("Quill AI Literary Report", pageWidth / 2, cursorY, { align: "center" });
   
   cursorY += 20;
   doc.setFont("helvetica", "normal");
@@ -196,5 +196,5 @@ export const generatePDF = (analysis: AnalysisResult, fileName: string) => {
   }
 
   // Save
-  doc.save(`DraftSmith_Report_${fileName.replace(/\.[^/.]+$/, "")}.pdf`);
+  doc.save(`QuillAI_Report_${fileName.replace(/\.[^/.]+$/, "")}.pdf`);
 };

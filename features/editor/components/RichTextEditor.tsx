@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
@@ -24,11 +24,13 @@ interface RichTextEditorProps {
   setEditorRef: (editor: any) => void;
   activeHighlight: { start: number; end: number; type: string } | null;
   analysisHighlights?: HighlightItem[];
-  // DraftSmith 3.0: Inline Comments
+  // Quill AI 3.0: Inline Comments
   inlineComments?: InlineComment[];
   onCommentClick?: (comment: InlineComment, position: { top: number; left: number }) => void;
   onFixWithAgent?: (issue: string, suggestion: string, quote?: string) => void;
   onDismissComment?: (commentId: string) => void;
+  // Quill AI 3.0: Zen Mode
+  isZenMode?: boolean;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -41,9 +43,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   inlineComments = [],
   onCommentClick,
   onFixWithAgent,
-  onDismissComment
+  onDismissComment,
+  isZenMode = false
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const [activeComment, setActiveComment] = useState<(InlineComment & { position: { top: number; left: number } }) | null>(null);
 
   const AnalysisDecorations = useMemo(() => {
@@ -165,6 +169,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const left = (startPos.left + endPos.left) / 2;
       onSelectionChange({ start: from, end: to, text }, { top, left });
     },
+    onTransaction: ({ editor, transaction }) => {
+      // Typewriter scrolling in Zen Mode - keep cursor centered
+      if (isZenMode && transaction.selectionSet && !transaction.getMeta('preventTypewriterScroll')) {
+        const { from } = editor.state.selection;
+        const coords = editor.view.coordsAtPos(from);
+        const viewportHeight = window.innerHeight;
+        const targetY = viewportHeight * 0.45; // Slightly above center feels better
+        const scrollContainer = editorContainerRef.current?.closest('.overflow-y-auto');
+        
+        if (scrollContainer && coords) {
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const cursorYInContainer = coords.top - containerRect.top;
+          const scrollOffset = cursorYInContainer - targetY;
+          
+          if (Math.abs(scrollOffset) > 50) { // Only scroll if cursor is more than 50px from center
+            scrollContainer.scrollBy({
+              top: scrollOffset,
+              behavior: 'smooth'
+            });
+          }
+        }
+      }
+    },
   });
 
   useEffect(() => {
@@ -211,6 +238,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   return (
     <>
     <div 
+      ref={editorContainerRef}
       className={`bg-[var(--parchment-50)] min-h-[80vh] rounded-sm relative overflow-hidden transition-all duration-700 ease-out-expo animate-fade-in ${
         isFocused 
           ? 'scale-[1.01] shadow-[var(--shadow-xl)] z-10' 

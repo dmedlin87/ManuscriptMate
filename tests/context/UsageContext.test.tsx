@@ -55,7 +55,7 @@ describe('UsageContext', () => {
   });
 
   it('initializes usage data from localStorage', async () => {
-    storage['draftsmith_usage'] = JSON.stringify({ prompt: 10, response: 20, requests: 3 });
+    storage['quillai_usage'] = JSON.stringify({ prompt: 10, response: 20, requests: 3 });
 
     render(
       <UsageProvider>
@@ -69,7 +69,7 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('request-count')).toHaveTextContent('3');
     });
 
-    expect(getItemSpy).toHaveBeenCalledWith('draftsmith_usage');
+    expect(getItemSpy).toHaveBeenCalledWith('quillai_usage');
   });
 
   it('tracks usage and persists updates', async () => {
@@ -88,7 +88,7 @@ describe('UsageContext', () => {
     });
 
     expect(setItemSpy).toHaveBeenLastCalledWith(
-      'draftsmith_usage',
+      'quillai_usage',
       JSON.stringify({ prompt: 5, response: 4, requests: 1 })
     );
   });

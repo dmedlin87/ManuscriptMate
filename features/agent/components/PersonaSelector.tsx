@@ -1,5 +1,5 @@
 /**
- * PersonaSelector - Agent Persona Switcher for DraftSmith 3.0
+ * PersonaSelector - Agent Persona Switcher for Quill AI 3.0
  * 
  * Allows users to select which AI persona provides feedback.
  */
