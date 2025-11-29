@@ -460,4 +460,122 @@ describe('ImportWizard', () => {
       expect(finishButton).toBeDisabled();
     });
   });
+
+  describe('AI Enhancement', () => {
+    it('calls onAIEnhance and updates chapter when clicking Enhance button', async () => {
+      const mockOnEnhance = vi.fn().mockResolvedValue({
+        summary: 'AI generated summary',
+        suggestedTitle: 'Better Title'
+      });
+
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+          onAIEnhance={mockOnEnhance}
+        />
+      );
+
+      // Click Enhance button
+      const enhanceBtn = screen.getByText('Enhance with AI');
+      fireEvent.click(enhanceBtn);
+
+      // Check loading state if possible, or just wait for result
+      expect(mockOnEnhance).toHaveBeenCalled();
+
+      await waitFor(() => {
+        expect(screen.getByText('AI generated summary')).toBeInTheDocument();
+        expect(screen.getByText('Better Title')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Auto-Fix', () => {
+    it('fixes fixable issues when clicking Auto-Fix', () => {
+      // Create a chapter with a fixable issue (duplicate title)
+      const chaptersWithIssues = [
+        { title: 'Chapter 1', content: 'Content 1' },
+        { title: 'Chapter 1', content: 'Content 2' },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chaptersWithIssues}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      // Should see duplicate title error
+      // Auto-fix button should be visible
+      const fixBtn = screen.getByText(/Auto-Fix/i);
+      fireEvent.click(fixBtn);
+
+      // Verify fix (titles should be unique)
+      fireEvent.click(screen.getByText('Finish Import'));
+      const result = mockOnConfirm.mock.calls[0][0];
+      expect(result[0].title).not.toEqual(result[1].title);
+    });
+  });
+
+  describe('Drag and Drop', () => {
+    it('reorders chapters via drag and drop', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const items = screen.getAllByText(/Chapter \d:/);
+      const firstItem = items[0].closest('[draggable="true"]');
+      const secondItem = items[1].closest('[draggable="true"]');
+
+      if (!firstItem || !secondItem) throw new Error('Draggable items not found');
+
+      const mockDataTransfer = {
+        effectAllowed: 'none',
+        setData: vi.fn(),
+        getData: vi.fn(),
+        setDragImage: vi.fn(),
+      };
+
+      fireEvent.dragStart(firstItem, { dataTransfer: mockDataTransfer });
+      fireEvent.dragOver(secondItem, { dataTransfer: mockDataTransfer });
+      fireEvent.drop(secondItem, { dataTransfer: mockDataTransfer });
+
+      // Check order via finish import
+      fireEvent.click(screen.getByText('Finish Import'));
+      const result = mockOnConfirm.mock.calls[0][0];
+      
+      // Chapter 1 should now be second (swapped or moved)
+      expect(result[0].title).not.toBe('Chapter 1: The Beginning');
+    });
+  });
+
+  describe('Chapter Split', () => {
+    it('splits chapter at cursor position', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      // Focus editor and set cursor
+      const textarea = screen.getByPlaceholderText('Chapter content...');
+      
+      // Set selection
+      fireEvent.select(textarea, { target: { selectionStart: 5, selectionEnd: 5 } });
+      
+      // Click Split
+      fireEvent.click(screen.getByText('Split at Cursor'));
+
+      // Should now have 4 chapters
+      expect(screen.getByText(/4 chapters detected/)).toBeInTheDocument();
+    });
+  });
 });

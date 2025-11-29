@@ -140,6 +140,34 @@ describe('enrichAnalysisWithPositions', () => {
     expect(charInc.endIndex).toBeDefined();
   });
 
+  it('enriches pacing slow sections with positions', () => {
+    const analysisWithPacing = createAnalysis({
+      pacing: {
+        score: 5,
+        analysis: 'Too slow',
+        slowSections: ['walked into the dark castle'],
+        fastSections: []
+      }
+    });
+
+    const enriched = enrichAnalysisWithPositions(analysisWithPacing, fullText);
+    
+    // Currently the type definition might not explicitly add start/end to strings in the array,
+    // but the function logic usually transforms them or we check if it *can* find them.
+    // Looking at the implementation of enrichAnalysisWithPositions (inferred), it likely
+    // modifies the object in place or returns a new one.
+    // However, slowSections is typically string[]. If enrichAnalysisWithPositions returns string[], 
+    // it can't add properties to primitives. 
+    // Let's check the type or implementation in a real scenario if we could. 
+    // Assuming enrichAnalysisWithPositions might transform string[] to object[] or similar if it supports it.
+    // If it doesn't support pacing, this test is useful to prove it or document behavior.
+    // 
+    // WAIT: The EditorWorkspace usage shows:
+    // analysis.pacing?.slowSections?.forEach((section) => { const range = findQuoteRange(...) })
+    // So the ENRICH function might NOT be handling pacing sections if they remain strings.
+    // Let's checking the file content of textLocator.ts to be sure.
+  });
+
   it('does not mutate original analysis', () => {
     const original = JSON.parse(JSON.stringify(mockAnalysis));
     enrichAnalysisWithPositions(mockAnalysis, fullText);

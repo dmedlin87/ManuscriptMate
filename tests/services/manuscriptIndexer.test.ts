@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createEmptyIndex, mergeIntoIndex, extractEntities } from '@/services/manuscriptIndexer';
+import { ManuscriptIndex } from '@/types/schema';
 
 // Mock GoogleGenAI
+const mockGenerateContent = vi.fn();
 vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn().mockImplementation(() => ({
     models: {
-      generateContent: vi.fn(),
+      generateContent: mockGenerateContent,
     },
   })),
   Type: {
@@ -15,7 +17,6 @@ vi.mock('@google/genai', () => ({
     NUMBER: 'NUMBER',
   },
 }));
-import { ManuscriptIndex } from '@/types/schema';
 
 describe('createEmptyIndex', () => {
   it('returns an empty ManuscriptIndex', () => {
@@ -269,6 +270,10 @@ describe('mergeIntoIndex', () => {
 });
 
 describe('extractEntities', () => {
+  beforeEach(() => {
+    mockGenerateContent.mockReset();
+  });
+
   it('returns empty result for text shorter than 50 characters', async () => {
     const result = await extractEntities('Short text', 'chapter-1');
     
@@ -278,6 +283,38 @@ describe('extractEntities', () => {
   it('returns empty result for empty text', async () => {
     const result = await extractEntities('', 'chapter-1');
     
+    expect(result).toEqual({ characters: [] });
+  });
+
+  it('successfully extracts entities from valid text', async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () => JSON.stringify({
+          characters: [
+            { name: 'Hero', attributes: { class: 'Warrior' }, position: 10 }
+          ]
+        })
+      }
+    });
+
+    const text = 'This is a long enough text to trigger the extraction logic. Hero enters the scene.';
+    const result = await extractEntities(text, 'chapter-1');
+
+    expect(result.characters).toHaveLength(1);
+    expect(result.characters[0].name).toBe('Hero');
+    expect(result.characters[0].attributes.class).toBe('Warrior');
+  });
+
+  it('handles JSON parsing errors gracefully', async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () => 'Invalid JSON'
+      }
+    });
+
+    const text = 'This is a long enough text to trigger the extraction logic. It causes an error.';
+    const result = await extractEntities(text, 'chapter-1');
+
     expect(result).toEqual({ characters: [] });
   });
 });

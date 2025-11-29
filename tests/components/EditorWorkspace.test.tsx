@@ -50,6 +50,14 @@ vi.mock('@/features/editor/components/VisualDiff', () => ({
   VisualDiff: () => <div data-testid="visual-diff" />,
 }));
 
+const mockCommentCardProps = vi.fn();
+vi.mock('@/features/editor/components/CommentCard', () => ({
+  CommentCard: (props: any) => {
+    mockCommentCardProps(props);
+    return <div data-testid="comment-card">Comment Card</div>;
+  },
+}));
+
 import { useProjectStore } from '@/features/project';
 import { useEditor, useEngine } from '@/features/shared';
 
@@ -110,6 +118,7 @@ describe('EditorWorkspace', () => {
     mockRichTextProps.mockReset();
     mockMagicBarProps.mockReset();
     mockFindModalProps.mockReset();
+    mockCommentCardProps.mockReset();
     setupMocks();
   });
 
@@ -221,5 +230,60 @@ describe('EditorWorkspace', () => {
 
     fireEvent.click(screen.getByText('Reject'));
     expect(mockReject).toHaveBeenCalled();
+  });
+
+  it('handles comment interactions', () => {
+    const mockDismissComment = vi.fn();
+    setupMocks({ dismissComment: mockDismissComment });
+    render(<EditorWorkspace />);
+
+    // 1. Trigger comment click from RichTextEditor
+    const onCommentClick = mockRichTextProps.mock.calls[0][0].onCommentClick;
+    const mockComment = {
+      id: 'c1',
+      type: 'issue',
+      issue: 'Grammar',
+      suggestion: 'Fix it',
+      severity: 'high',
+      quote: 'bad text',
+    };
+    const mockPos = { top: 100, left: 100 };
+
+    fireEvent(
+      window,
+      new MouseEvent('click', { bubbles: true, cancelable: true })
+    ); // clear any previous selection/state if needed (though not needed here really)
+
+    React.act(() => {
+      onCommentClick(mockComment, mockPos);
+    });
+
+    expect(screen.getByTestId('comment-card')).toBeInTheDocument();
+    expect(mockCommentCardProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comment: expect.objectContaining({ commentId: 'c1' }),
+        position: mockPos,
+      })
+    );
+
+    // 2. Test Fix with Agent (closes card)
+    const onFixWithAgent = mockCommentCardProps.mock.calls[0][0].onFixWithAgent;
+    React.act(() => {
+      onFixWithAgent('Grammar', 'Fix it', 'bad text');
+    });
+    expect(screen.queryByTestId('comment-card')).not.toBeInTheDocument();
+
+    // Re-open for next test
+    React.act(() => {
+      onCommentClick(mockComment, mockPos);
+    });
+
+    // 3. Test Dismiss (closes card and calls context dismiss)
+    const onDismiss = mockCommentCardProps.mock.calls[1][0].onDismiss;
+    React.act(() => {
+      onDismiss('c1');
+    });
+    expect(screen.queryByTestId('comment-card')).not.toBeInTheDocument();
+    expect(mockDismissComment).toHaveBeenCalledWith('c1');
   });
 });
