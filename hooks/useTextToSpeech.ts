@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { generateSpeech } from '../services/geminiService';
+import { generateSpeech } from '../services/gemini/audio';
 
 export function useTextToSpeech() {
   const [isPlaying, setIsPlaying] = useState(false);

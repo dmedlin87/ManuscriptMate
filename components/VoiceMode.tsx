@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { connectLiveSession } from '../services/geminiService';
+import { connectLiveSession } from '../services/gemini/audio';
 
 export const VoiceMode: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);

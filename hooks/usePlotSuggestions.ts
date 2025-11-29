@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { generatePlotIdeas } from '../services/geminiService';
+import { generatePlotIdeas } from '../services/gemini/analysis';
 import { PlotSuggestion } from '../types';
 
 export function usePlotSuggestions(currentText: string) {

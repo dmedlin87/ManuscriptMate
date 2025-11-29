@@ -40,6 +40,7 @@ interface EditorLayoutProps {
   engineState: {
     isAnalyzing: boolean;
     magicVariations: string[];
+    activeMagicMode?: string | null;
     magicHelpResult?: string;
     magicHelpType?: 'Explain' | 'Thesaurus' | null;
     isMagicLoading: boolean;
@@ -126,10 +127,10 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
         analysis.settingAnalysis?.issues?.forEach(issue => {
             const range = findQuoteRange(currentText, issue.quote);
             if (range) highlights.push({ ...range, color: 'var(--magic-500)', title: issue.issue });
-        });
-    }
-    return highlights;
-  }, [activeChapter, currentText, contradictions]);
+            });
+        }
+        return highlights;
+    }, [activeChapter, currentText, contradictions]);
 
   return (
     <div className="flex w-full h-full bg-[var(--parchment-200)] text-[var(--ink-800)] font-sans">
@@ -231,6 +232,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
                   variations={engineState.magicVariations} 
                   helpResult={engineState.magicHelpResult}
                   helpType={engineState.magicHelpType}
+                  activeMode={engineState.activeMagicMode}
                   onRewrite={engineActions.handleRewrite}
                   onHelp={engineActions.handleHelp}
                   onApply={engineActions.applyVariation}

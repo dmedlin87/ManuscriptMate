@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, EditorContext, AnalysisResult } from '../types';
-import { createAgentSession } from '../services/geminiService';
+import { createAgentSession } from '../services/gemini/agent';
 import { Chat } from "@google/genai";
 import { Lore, Chapter } from '../types/schema';
 

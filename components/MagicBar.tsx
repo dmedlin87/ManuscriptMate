@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 
 interface MagicBarProps {
@@ -6,6 +5,7 @@ interface MagicBarProps {
   variations: string[];
   helpResult?: string;
   helpType?: 'Explain' | 'Thesaurus' | null;
+  activeMode?: string | null;
   onRewrite: (mode: string, tone?: string) => void;
   onHelp: (type: 'Explain' | 'Thesaurus') => void;
   onApply: (text: string) => void;
@@ -15,7 +15,7 @@ interface MagicBarProps {
 
 // --- Icons ---
 const Icons = {
-  Sparkles: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>,
+  Sparkles: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z" /></svg>,
   Book: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>,
   Lightbulb: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5a6 6 0 0 0-12 0c0 1.5.5 2.5 1.5 3.5.8.8 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" /></svg>,
   Eye: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>,
@@ -77,10 +77,11 @@ export const MagicBar: React.FC<MagicBarProps> = ({
   variations, 
   helpResult,
   helpType,
+  activeMode,
   onRewrite, 
   onHelp, 
   onApply, 
-  onClose,
+  onClose, 
   position 
 }) => {
   const [activeView, setActiveView] = useState<'menu' | 'tone' | 'variations' | 'help'>('menu');
@@ -118,6 +119,11 @@ export const MagicBar: React.FC<MagicBarProps> = ({
              <span className="text-sm font-medium bg-gradient-to-r from-[var(--magic-200)] to-[var(--magic-400)] bg-clip-text text-transparent animate-pulse">
                Consulting the muse...
              </span>
+             {activeMode && (
+               <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--ink-800)] border border-[var(--ink-700)] text-[10px] font-bold text-[var(--magic-300)] uppercase tracking-wider animate-fade-in">
+                 {activeMode}
+               </span>
+             )}
           </div>
           {/* Triangle Caret */}
           <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-[var(--ink-950)] rotate-45 border-b border-r border-[var(--ink-800)]"></div>
@@ -207,7 +213,14 @@ export const MagicBar: React.FC<MagicBarProps> = ({
               {activeView === 'variations' ? (
                 <>
                   <span className="text-[var(--magic-500)]"><Icons.Sparkles /></span>
-                  Magic Variations
+                  <div className="flex flex-col leading-tight">
+                    <span className="font-bold">Magic Variations</span>
+                    {activeMode && (
+                      <span className="inline-flex self-start mt-0.5 px-1.5 py-0.5 rounded bg-[var(--magic-100)] text-[var(--ink-800)] text-[10px] font-bold uppercase tracking-wider border border-[var(--magic-200)]">
+                        {activeMode}
+                      </span>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -279,4 +292,3 @@ export const MagicBar: React.FC<MagicBarProps> = ({
     </div>
   );
 };
-    

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { analyzeDraft, rewriteText, getContextualHelp } from '../services/geminiService';
+import { analyzeDraft } from '../services/gemini/analysis';
+import { rewriteText, getContextualHelp } from '../services/gemini/agent';
 import { AnalysisResult } from '../types';
 import { Lore, ManuscriptIndex } from '../types/schema';
 
@@ -76,6 +77,7 @@ export function useDraftSmithEngine({
 
   // Magic Editor State
   const [magicVariations, setMagicVariations] = useState<string[]>([]);
+  const [activeMagicMode, setActiveMagicMode] = useState<string | null>(null);
   const [magicHelpResult, setMagicHelpResult] = useState<string | null>(null);
   const [magicHelpType, setMagicHelpType] = useState<'Explain' | 'Thesaurus' | null>(null);
   const [isMagicLoading, setIsMagicLoading] = useState(false);
@@ -157,6 +159,7 @@ export function useDraftSmithEngine({
 
   const resetMagicState = useCallback(() => {
     setMagicVariations([]);
+    setActiveMagicMode(null);
     setMagicHelpResult(null);
     setMagicHelpType(null);
     setMagicError(null);
@@ -175,6 +178,7 @@ export function useDraftSmithEngine({
     operationSelectionRef.current = { ...selectionRange };
     
     resetMagicState();
+    setActiveMagicMode(mode === 'Tone Tuner' && tone ? `Tone: ${tone}` : mode);
     setIsMagicLoading(true);
 
     try {
@@ -349,6 +353,7 @@ export function useDraftSmithEngine({
       isAnalyzing,
       analysisError,
       magicVariations,
+      activeMagicMode,
       magicHelpResult,
       magicHelpType,
       isMagicLoading,
