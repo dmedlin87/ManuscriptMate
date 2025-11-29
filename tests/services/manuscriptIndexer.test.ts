@@ -7,7 +7,8 @@ const mockGenerateContent = vi.fn();
 vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn().mockImplementation(() => ({
     models: {
-      generateContent: mockGenerateContent,
+      // Use a wrapper so we don't access mockGenerateContent value during mock factory evaluation
+      generateContent: (...args: any[]) => mockGenerateContent(...args),
     },
   })),
   Type: {
@@ -288,13 +289,11 @@ describe('extractEntities', () => {
 
   it('successfully extracts entities from valid text', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => JSON.stringify({
-          characters: [
-            { name: 'Hero', attributes: { class: 'Warrior' }, position: 10 }
-          ]
-        })
-      }
+      text: JSON.stringify({
+        characters: [
+          { name: 'Hero', attributes: { class: 'Warrior' }, position: 10 },
+        ],
+      }),
     });
 
     const text = 'This is a long enough text to trigger the extraction logic. Hero enters the scene.';
@@ -307,9 +306,7 @@ describe('extractEntities', () => {
 
   it('handles JSON parsing errors gracefully', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => 'Invalid JSON'
-      }
+      text: 'Invalid JSON',
     });
 
     const text = 'This is a long enough text to trigger the extraction logic. It causes an error.';

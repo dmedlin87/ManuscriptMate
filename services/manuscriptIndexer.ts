@@ -53,10 +53,15 @@ export async function extractEntities(
     }
   });
   
-  const result = JSON.parse(response.text || "{}");
-  return {
-    characters: result.characters || []
-  };
+  try {
+    const result = JSON.parse(response.text || "{}");
+    return {
+      characters: result.characters || []
+    };
+  } catch (error) {
+    console.error('[ManuscriptIndexer] Failed to parse extraction result', error);
+    return { characters: [] };
+  }
 }
 
 // Merge extraction into existing index, detecting contradictions
