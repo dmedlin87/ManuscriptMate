@@ -1,11 +1,8 @@
 import React, { useEffect } from 'react';
-import { useProjectStore } from './store/useProjectStore';
-import { ManuscriptProvider } from './contexts/ManuscriptContext';
-import { AnalysisProvider } from './contexts/AnalysisContext';
-import { UsageProvider } from './contexts/UsageContext';
-import { EngineProvider } from './contexts/EngineContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { MainLayout } from './components/layout/MainLayout';
+import { useProjectStore } from '@/features/project';
+import { EditorProvider, EngineProvider, UsageProvider, ErrorBoundary } from '@/features/shared';
+import { AnalysisProvider } from '@/features/analysis';
+import { MainLayout } from '@/features/layout';
 
 const App: React.FC = () => {
   const { init: initStore, isLoading: isStoreLoading } = useProjectStore();
@@ -17,13 +14,13 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <UsageProvider>
-        <ManuscriptProvider>
+        <EditorProvider>
           <EngineProvider>
             <AnalysisProvider>
               <MainLayout />
             </AnalysisProvider>
           </EngineProvider>
-        </ManuscriptProvider>
+        </EditorProvider>
       </UsageProvider>
     </ErrorBoundary>
   );
