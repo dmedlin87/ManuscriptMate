@@ -6,10 +6,10 @@
  */
 
 /**
- * Sanitizes LLM response text by removing common formatting artifacts
- * that prevent JSON parsing.
+ * Removes markdown code fences (```json and ```) from LLM output.
+ * Exported for direct use when you need to clean text before custom parsing.
  */
-function sanitizeJsonResponse(text: string): string {
+export function cleanJsonOutput(text: string): string {
   let cleaned = text.trim();
   
   // Remove markdown code blocks (```json ... ``` or ``` ... ```)
@@ -21,6 +21,17 @@ function sanitizeJsonResponse(text: string): string {
   
   // Remove leading/trailing backticks if present
   cleaned = cleaned.replace(/^`+|`+$/g, '');
+  
+  return cleaned.trim();
+}
+
+/**
+ * Sanitizes LLM response text by removing common formatting artifacts
+ * that prevent JSON parsing. Includes cleanJsonOutput plus additional preamble removal.
+ */
+function sanitizeJsonResponse(text: string): string {
+  // Start with markdown/fence removal
+  let cleaned = cleanJsonOutput(text);
   
   // Remove common LLM preambles
   const preamblePatterns = [

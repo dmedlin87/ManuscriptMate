@@ -1,16 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { connectLiveSession } from '../services/gemini/audio';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { connectLiveSession, type LiveSessionClient } from '../services/gemini/audio';
 
 export const VoiceMode: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  
+  // Connection state ref for use in animation loop (avoids stale closure)
+  const isConnectedRef = useRef(false);
+  // Track previous AI speaking state to avoid unnecessary re-renders
+  const wasAiSpeakingRef = useRef(false);
   
   // Refs for audio processing
   const audioContextRef = useRef<AudioContext | null>(null); // For Input
   const playbackContextRef = useRef<AudioContext | null>(null); // For Output
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sessionClientRef = useRef<any>(null);
+  const sessionClientRef = useRef<LiveSessionClient | null>(null);
   
   // Audio Scheduling
   const nextStartTimeRef = useRef<number>(0);
@@ -21,7 +26,143 @@ export const VoiceMode: React.FC = () => {
   const outputAnalyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const startSession = async () => {
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Stop Session - defined first as it has no dependencies
+  // ─────────────────────────────────────────────────────────────────────────────
+  const stopSession = useCallback(() => {
+    // 1. Stop the animation loop FIRST - cancel before any cleanup
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    // 2. Update refs immediately to signal render loop to exit
+    isConnectedRef.current = false;
+    
+    // 3. Update state
+    setIsConnected(false);
+    setIsAiSpeaking(false);
+    wasAiSpeakingRef.current = false;
+    
+    // 4. Cleanup Input
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    // 5. Cleanup Output
+    if (playbackContextRef.current && playbackContextRef.current.state !== 'closed') {
+      playbackContextRef.current.close();
+      playbackContextRef.current = null;
+    }
+    
+    // 6. Cleanup Session
+    if (sessionClientRef.current) {
+      sessionClientRef.current.disconnect();
+      sessionClientRef.current = null;
+    }
+    
+    // 7. Reset analyser refs last
+    inputAnalyserRef.current = null;
+    outputAnalyserRef.current = null;
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Visualizer - animation loop with strict guards
+  // ─────────────────────────────────────────────────────────────────────────────
+  const startVisualizer = useCallback(() => {
+    const render = () => {
+      // Strict guard: stop loop entirely if disconnected or any ref is missing
+      if (
+        !isConnectedRef.current ||
+        !canvasRef.current ||
+        !inputAnalyserRef.current ||
+        !outputAnalyserRef.current
+      ) {
+        return; // Do NOT request next frame - exit cleanly
+      }
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = canvas.width;
+      const height = canvas.height;
+
+      // Get Frequency Data
+      const inputFreq = new Uint8Array(inputAnalyserRef.current.frequencyBinCount);
+      inputAnalyserRef.current.getByteFrequencyData(inputFreq);
+      
+      const outputFreq = new Uint8Array(outputAnalyserRef.current.frequencyBinCount);
+      outputAnalyserRef.current.getByteFrequencyData(outputFreq);
+
+      // Determine who is speaking based on average volume
+      const getAvg = (arr: Uint8Array) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const _inputVol = getAvg(inputFreq); // Reserved for future hysteresis logic
+      const outputVol = getAvg(outputFreq);
+      
+      // Simple logic: if AI is making noise, show AI. Else show User.
+      // Add a small threshold to avoid noise
+      const aiActive = outputVol > 10;
+      
+      // Only update state if changed to avoid unnecessary re-renders
+      if (aiActive !== wasAiSpeakingRef.current) {
+        wasAiSpeakingRef.current = aiActive;
+        setIsAiSpeaking(aiActive);
+      }
+
+      const activeData = aiActive ? outputFreq : inputFreq;
+      const activeColor = aiActive ? '#22d3ee' : '#6366f1'; // Cyan vs Indigo
+      
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw Bars
+      const barCount = 32;
+      const barWidth = 6;
+      const gap = 4;
+      const totalWidth = barCount * (barWidth + gap);
+      const startX = (width - totalWidth) / 2;
+      const centerY = height / 2;
+
+      ctx.fillStyle = activeColor;
+      
+      // Step through frequency data for visualization
+      const step = Math.floor(activeData.length / barCount);
+
+      for (let i = 0; i < barCount; i++) {
+        const value = activeData[i * step];
+        const percent = value / 255;
+        const barHeight = Math.max(4, percent * height * 0.8);
+        
+        const x = startX + i * (barWidth + gap);
+        const y = centerY - barHeight / 2;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, 4);
+        ctx.fill();
+        
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = activeColor;
+      }
+      ctx.shadowBlur = 0;
+
+      animationFrameRef.current = requestAnimationFrame(render);
+    };
+    render();
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Start Session - depends on stopSession and startVisualizer
+  // ─────────────────────────────────────────────────────────────────────────────
+  const startSession = useCallback(async () => {
     try {
       // 1. Setup Input (Microphone)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -64,18 +205,17 @@ export const VoiceMode: React.FC = () => {
           if (!playbackContextRef.current || !outputAnalyserRef.current) return;
           
           const ctx = playbackContextRef.current;
-          const source = ctx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(outputAnalyserRef.current); // Route through analyser
+          const bufferSource = ctx.createBufferSource();
+          bufferSource.buffer = audioBuffer;
+          bufferSource.connect(outputAnalyserRef.current);
           
-          // Schedule playback
+          // Schedule playback - ensure we don't schedule in the past
           const currentTime = ctx.currentTime;
-          // Ensure we don't schedule in the past, but try to be seamless
           if (nextStartTimeRef.current < currentTime) {
             nextStartTimeRef.current = currentTime;
           }
           
-          source.start(nextStartTimeRef.current);
+          bufferSource.start(nextStartTimeRef.current);
           nextStartTimeRef.current += audioBuffer.duration;
         },
         () => {
@@ -90,129 +230,23 @@ export const VoiceMode: React.FC = () => {
         client.sendAudio(inputData);
       };
 
+      isConnectedRef.current = true;
       setIsConnected(true);
       startVisualizer();
 
     } catch (e) {
       console.error("Failed to start voice session", e);
+      // Clean up any partial state on error
+      stopSession();
       alert("Could not access microphone or connect to Gemini Live.");
     }
-  };
-
-  const startVisualizer = () => {
-    const render = () => {
-      if (!canvasRef.current || !inputAnalyserRef.current || !outputAnalyserRef.current) {
-        animationFrameRef.current = requestAnimationFrame(render);
-        return;
-      }
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const width = canvas.width;
-      const height = canvas.height;
-
-      // Get Frequency Data
-      const inputFreq = new Uint8Array(inputAnalyserRef.current.frequencyBinCount);
-      inputAnalyserRef.current.getByteFrequencyData(inputFreq);
-      
-      const outputFreq = new Uint8Array(outputAnalyserRef.current.frequencyBinCount);
-      outputAnalyserRef.current.getByteFrequencyData(outputFreq);
-
-      // Determine who is speaking based on average volume
-      const getAvg = (arr: Uint8Array) => arr.reduce((a, b) => a + b, 0) / arr.length;
-      const inputVol = getAvg(inputFreq);
-      const outputVol = getAvg(outputFreq);
-      
-      // Simple logic: if AI is making noise, show AI. Else show User.
-      // Add a small threshold to avoid noise
-      const aiActive = outputVol > 10;
-      setIsAiSpeaking(aiActive);
-
-      const activeData = aiActive ? outputFreq : inputFreq;
-      const activeColor = aiActive ? '#22d3ee' : '#6366f1'; // Cyan vs Indigo
-      
-      ctx.clearRect(0, 0, width, height);
-      
-      // Draw Bars
-      const barCount = 32; // Number of bars to draw
-      const barWidth = 6;
-      const gap = 4;
-      const totalWidth = barCount * (barWidth + gap);
-      const startX = (width - totalWidth) / 2;
-      const centerY = height / 2;
-
-      ctx.fillStyle = activeColor;
-      
-      // Mirror effect from center of the array for a nicer look
-      // We'll step through the frequency data
-      const step = Math.floor(activeData.length / barCount);
-
-      for (let i = 0; i < barCount; i++) {
-        const value = activeData[i * step];
-        const percent = value / 255;
-        const barHeight = Math.max(4, percent * height * 0.8); // Min height 4px
-        
-        const x = startX + i * (barWidth + gap);
-        const y = centerY - barHeight / 2;
-
-        // Rounded rect
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, barHeight, 4);
-        ctx.fill();
-        
-        // Add a slight glow
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = activeColor;
-      }
-      ctx.shadowBlur = 0; // Reset for next frame
-
-      animationFrameRef.current = requestAnimationFrame(render);
-    };
-    render();
-  };
-
-  const stopSession = () => {
-    setIsConnected(false);
-    setIsAiSpeaking(false);
-
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    
-    // Cleanup Input
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-
-    // Cleanup Output
-    if (playbackContextRef.current && playbackContextRef.current.state !== 'closed') {
-      playbackContextRef.current.close();
-      playbackContextRef.current = null;
-    }
-    
-    // Cleanup Session
-    if (sessionClientRef.current) {
-      sessionClientRef.current.disconnect();
-      sessionClientRef.current = null;
-    }
-  };
+  }, [stopSession, startVisualizer]);
 
   useEffect(() => {
     return () => {
       stopSession();
     };
-  }, []);
+  }, [stopSession]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl relative overflow-hidden">

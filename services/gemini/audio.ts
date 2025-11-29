@@ -4,6 +4,12 @@ import { ai } from "./client";
 import { base64ToUint8Array, createBlob, decodeAudioData } from "../audioUtils";
 import { LIVE_AGENT_SYSTEM_INSTRUCTION } from "./prompts";
 
+/** Client interface for a live audio session */
+export interface LiveSessionClient {
+  sendAudio: (data: Float32Array) => Promise<void>;
+  disconnect: () => Promise<void>;
+}
+
 export const generateSpeech = async (text: string): Promise<AudioBuffer | null> => {
   try {
     const response = await ai.models.generateContent({
@@ -42,7 +48,7 @@ export const generateSpeech = async (text: string): Promise<AudioBuffer | null> 
 export const connectLiveSession = async (
   onAudioData: (buffer: AudioBuffer) => void,
   onClose: () => void
-) => {
+): Promise<LiveSessionClient> => {
   const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
   
   const sessionPromise = ai.live.connect({

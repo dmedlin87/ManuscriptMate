@@ -1,5 +1,5 @@
 import { Type, UsageMetadata } from "@google/genai";
-import { AnalysisResult, PlotSuggestion } from "../../types";
+import { AnalysisResult, AnalysisResultSchema, PlotSuggestion } from "../../types";
 import { ManuscriptIndex } from "../../types/schema";
 import { ModelConfig, ThinkingBudgets } from "../../config/models";
 import { ai } from "./client";
@@ -169,8 +169,20 @@ export const analyzeDraft = async (
     console.warn('[analyzeDraft] Parse failed:', parseResult.error);
   }
 
+  // Zod runtime validation
+  const zodResult = AnalysisResultSchema.safeParse(parseResult.data);
+  
+  if (!zodResult.success) {
+    console.error('[analyzeDraft] Zod validation failed:', zodResult.error.format());
+    return {
+      result: EMPTY_ANALYSIS,
+      usage: response.usageMetadata,
+      warning: 'AI response failed validation - using default analysis',
+    };
+  }
+
   return {
-    result: parseResult.data!,
+    result: zodResult.data as AnalysisResult,
     usage: response.usageMetadata,
     warning: warning || (parseResult.sanitized ? 'Response required sanitization' : undefined),
   };

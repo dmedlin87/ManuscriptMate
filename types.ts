@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface CharacterProfile {
   name: string;
   bio: string;
@@ -53,6 +55,58 @@ export interface AnalysisResult {
   
   generalSuggestions: string[];
 }
+
+// Zod schemas for runtime validation of AI responses
+const CharacterProfileSchema = z.object({
+  name: z.string().default(''),
+  bio: z.string().default(''),
+  arc: z.string().default(''),
+  arcStages: z.array(z.object({
+    stage: z.string(),
+    description: z.string(),
+  })).default([]),
+  relationships: z.array(z.object({
+    name: z.string(),
+    type: z.string(),
+    dynamic: z.string(),
+  })).default([]),
+  plotThreads: z.array(z.string()).default([]),
+  inconsistencies: z.array(z.object({
+    issue: z.string(),
+    quote: z.string().optional(),
+  })).default([]),
+  developmentSuggestion: z.string().default(''),
+});
+
+export const AnalysisResultSchema = z.object({
+  summary: z.string().default('Analysis could not be completed.'),
+  strengths: z.array(z.string()).default([]),
+  weaknesses: z.array(z.string()).default([]),
+  pacing: z.object({
+    score: z.number().default(0),
+    analysis: z.string().default(''),
+    slowSections: z.array(z.string()).default([]),
+    fastSections: z.array(z.string()).default([]),
+  }).default({ score: 0, analysis: '', slowSections: [], fastSections: [] }),
+  settingAnalysis: z.object({
+    score: z.number().default(0),
+    analysis: z.string().default(''),
+    issues: z.array(z.object({
+      quote: z.string(),
+      issue: z.string(),
+      suggestion: z.string(),
+      alternatives: z.array(z.string()).optional(),
+    })).default([]),
+  }).optional(),
+  plotIssues: z.array(z.object({
+    issue: z.string(),
+    location: z.string(),
+    suggestion: z.string(),
+    quote: z.string().optional(),
+  })).default([]),
+  characters: z.array(CharacterProfileSchema).default([]),
+  generalSuggestions: z.array(z.string()).default([]),
+});
 
 export interface PlotSuggestion {
   title: string;

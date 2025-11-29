@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { analyzeDraft } from '../services/gemini/analysis';
-import { rewriteText, getContextualHelp } from '../services/gemini/agent';
 import { AnalysisResult } from '../types';
 import { Lore, ManuscriptIndex } from '../types/schema';
 import { useUsage } from '../contexts/UsageContext';
+import { useMagicEditor } from './useMagicEditor';
 
 // Define proper types
 interface ProjectContext {
@@ -73,30 +73,27 @@ export function useDraftSmithEngine({
   
   const { trackUsage } = useUsage();
 
+  // Stable ref for project setting
+  const projectSetting = currentProject?.setting;
+  const projectId = currentProject?.id;
+  const manuscriptIndex = currentProject?.manuscriptIndex;
+
   // Analysis State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
 
-  // Magic Editor State
-  const [magicVariations, setMagicVariations] = useState<string[]>([]);
-  const [activeMagicMode, setActiveMagicMode] = useState<string | null>(null);
-  const [magicHelpResult, setMagicHelpResult] = useState<string | null>(null);
-  const [magicHelpType, setMagicHelpType] = useState<'Explain' | 'Thesaurus' | null>(null);
-  const [isMagicLoading, setIsMagicLoading] = useState(false);
-  const [magicError, setMagicError] = useState<string | null>(null);
-  const magicAbortRef = useRef<AbortController | null>(null);
+  // Magic Editor (delegated to useMagicEditor hook)
+  const { state: magicState, actions: magicActions } = useMagicEditor({
+    selectionRange,
+    clearSelection,
+    getCurrentText,
+    commit,
+    projectSetting
+  });
 
   // Review Mode State
   const [pendingDiff, setPendingDiff] = useState<PendingDiff | null>(null);
-
-  // Capture selection at operation start to detect staleness
-  const operationSelectionRef = useRef<SelectionRange | null>(null);
-
-  // Stable ref for project setting
-  const projectSetting = currentProject?.setting;
-  const projectId = currentProject?.id;
-  const manuscriptIndex = currentProject?.manuscriptIndex;
 
   // --- 1. Analysis Logic ---
   const runAnalysis = useCallback(async () => {
@@ -155,136 +152,7 @@ export function useDraftSmithEngine({
     setIsAnalyzing(false);
   }, []);
 
-  // --- 2. Magic Editor Logic ---
-  const abortMagicOperation = useCallback(() => {
-    magicAbortRef.current?.abort();
-    magicAbortRef.current = null;
-  }, []);
-
-  const resetMagicState = useCallback(() => {
-    setMagicVariations([]);
-    setActiveMagicMode(null);
-    setMagicHelpResult(null);
-    setMagicHelpType(null);
-    setMagicError(null);
-    operationSelectionRef.current = null;
-  }, []);
-
-  const handleRewrite = useCallback(async (mode: string, tone?: string) => {
-    if (!selectionRange) return;
-    
-    // Abort previous operation
-    abortMagicOperation();
-    magicAbortRef.current = new AbortController();
-    const signal = magicAbortRef.current.signal;
-    
-    // Capture selection state at start
-    operationSelectionRef.current = { ...selectionRange };
-    
-    resetMagicState();
-    setActiveMagicMode(mode === 'Tone Tuner' && tone ? `Tone: ${tone}` : mode);
-    setIsMagicLoading(true);
-
-    try {
-      const { result: variations, usage } = await rewriteText(
-        selectionRange.text, 
-        mode, 
-        tone, 
-        projectSetting,
-        signal // pass signal to service
-      );
-      trackUsage(usage);
-      
-      if (signal.aborted) return;
-      
-      setMagicVariations(variations);
-    } catch (e) {
-      if (signal.aborted) return;
-      const message = e instanceof Error ? e.message : 'Rewrite failed';
-      setMagicError(message);
-      console.error(e);
-    } finally {
-      if (!signal.aborted) {
-        setIsMagicLoading(false);
-      }
-    }
-  }, [selectionRange, projectSetting, abortMagicOperation, resetMagicState, trackUsage]);
-
-  const handleHelp = useCallback(async (type: 'Explain' | 'Thesaurus') => {
-    if (!selectionRange) return;
-    
-    abortMagicOperation();
-    magicAbortRef.current = new AbortController();
-    const signal = magicAbortRef.current.signal;
-    
-    operationSelectionRef.current = { ...selectionRange };
-    
-    resetMagicState();
-    setMagicHelpType(type);
-    setIsMagicLoading(true);
-
-    try {
-      const { result, usage } = await getContextualHelp(selectionRange.text, type, signal);
-      trackUsage(usage);
-      
-      if (signal.aborted) return;
-      
-      setMagicHelpResult(result);
-    } catch (e) {
-      if (signal.aborted) return;
-      const message = e instanceof Error ? e.message : 'Help request failed';
-      setMagicError(message);
-      console.error(e);
-    } finally {
-      if (!signal.aborted) {
-        setIsMagicLoading(false);
-      }
-    }
-  }, [selectionRange, abortMagicOperation, resetMagicState, trackUsage]);
-
-  const closeMagicBar = useCallback(() => {
-    abortMagicOperation();
-    resetMagicState();
-    // Note: caller should decide whether to clear selection
-  }, [abortMagicOperation, resetMagicState]);
-
-  const applyVariation = useCallback((newText: string) => {
-    const currentText = getCurrentText();
-    const capturedSelection = operationSelectionRef.current;
-    
-    if (!capturedSelection) {
-      setMagicError('No selection to apply to');
-      return;
-    }
-    
-    // Validate selection is still valid
-    const expectedText = currentText.substring(
-      capturedSelection.start, 
-      capturedSelection.end
-    );
-    
-    if (expectedText !== capturedSelection.text) {
-      setMagicError('Text has changed since selection. Please re-select and try again.');
-      closeMagicBar();
-      clearSelection();
-      return;
-    }
-    
-    const before = currentText.substring(0, capturedSelection.start);
-    const after = currentText.substring(capturedSelection.end);
-    const updated = before + newText + after;
-
-    const description = magicVariations.length > 0 
-      ? 'Magic Edit: Variation Applied' 
-      : 'Magic Edit: Context Replacement';
-    
-    commit(updated, description, 'User');
-    closeMagicBar();
-    clearSelection();
-  }, [getCurrentText, commit, magicVariations.length, closeMagicBar, clearSelection]);
-
-
-  // --- 3. Agent Logic ---
+  // --- 2. Agent Logic ---
   
   const acceptDiff = useCallback(() => {
     if (pendingDiff) {
@@ -358,21 +226,13 @@ export function useDraftSmithEngine({
     state: {
       isAnalyzing,
       analysisError,
-      magicVariations,
-      activeMagicMode,
-      magicHelpResult,
-      magicHelpType,
-      isMagicLoading,
-      magicError,
+      ...magicState,
       pendingDiff,
     },
     actions: {
       runAnalysis,
       cancelAnalysis,
-      handleRewrite,
-      handleHelp,
-      applyVariation,
-      closeMagicBar,
+      ...magicActions,
       handleAgentAction,
       acceptDiff,
       rejectDiff

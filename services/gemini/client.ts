@@ -13,10 +13,13 @@ import { getApiKey, validateApiKey } from '../../config/api';
 // Initialize with environment key
 const apiKey = getApiKey();
 
-// Validate on initialization (development warning)
+// Validate on initialization - throw if API key is empty/missing
 const validationError = validateApiKey(apiKey);
-if (validationError && typeof window !== 'undefined') {
+if (validationError) {
+  // Log for debugging context
   console.error(`[DraftSmith API] ${validationError}`);
+  // Throw a descriptive error that the UI can catch
+  throw new Error(`API Configuration Error: ${validationError}. Please set your VITE_GEMINI_API_KEY environment variable.`);
 }
 
 /**

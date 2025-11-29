@@ -16,3 +16,5 @@
 export { analyzeDraft, generatePlotIdeas } from './gemini/analysis';
 export { createAgentSession, rewriteText, getContextualHelp, agentTools } from './gemini/agent';
 export { generateSpeech, connectLiveSession } from './gemini/audio';
+export { cleanJsonOutput, safeParseJson } from './gemini/resilientParser';
+export { isApiConfigured, getApiStatus } from './gemini/client';
