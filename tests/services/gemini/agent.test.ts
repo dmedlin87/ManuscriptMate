@@ -398,4 +398,15 @@ describe('createAgentSession', () => {
       }
     });
   });
+
+  it('propagates chat sendMessage network errors to the caller', async () => {
+    const error = new Error('Network error');
+    const mockChat = { sendMessage: vi.fn().mockRejectedValue(error) };
+    mockAi.chats.create.mockReturnValue(mockChat as any);
+
+    const session = createAgentSession(mockLore);
+
+    await expect(session.sendMessage({ message: 'Hello agent' })).rejects.toThrow('Network error');
+    expect(mockChat.sendMessage).toHaveBeenCalledWith({ message: 'Hello agent' });
+  });
 });

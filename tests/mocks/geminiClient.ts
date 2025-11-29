@@ -21,25 +21,50 @@ export const mockUsageMetadata: UsageMetadata = {
   totalTokenCount: 150,
 };
 
+// Minimal interfaces mirroring the parts of the SDK we rely on
+interface MockChat {
+  sendMessage: (payload: { message: string } | { message: unknown[] }) => Promise<MockGeminiResponse>;
+}
+
+interface GeminiClientLike {
+  models: {
+    generateContent: (args: { model: string; contents: string; config?: unknown }) => Promise<MockGeminiResponse>;
+  };
+  chats: {
+    create: (args: { model: string; config: unknown }) => MockChat;
+  };
+}
+
 // Factory function to create mock generateContent responses
 export const createMockGenerateContent = (response: MockGeminiResponse) => {
   return vi.fn().mockResolvedValue(response);
 };
 
-// Factory function to create mock chat sessions
-export const createMockChat = () => {
-  const sendMessage = vi.fn().mockResolvedValue({
-    text: 'Mock chat response',
-    usageMetadata: mockUsageMetadata,
+// Factory function to create mock chat sessions with strict argument validation
+export const createMockChat = (response: MockGeminiResponse = {
+  text: 'Mock chat response',
+  usageMetadata: mockUsageMetadata,
+}): MockChat => {
+  const sendMessage: MockChat['sendMessage'] = vi.fn(async (payload) => {
+    if (!payload || typeof payload !== 'object' || !('message' in payload)) {
+      throw new Error('[MockChat] sendMessage called without a message payload');
+    }
+
+    const { message } = payload as { message: unknown };
+
+    if (typeof message !== 'string' && !Array.isArray(message)) {
+      throw new Error('[MockChat] sendMessage.message must be a string or an array');
+    }
+
+    return response;
   });
-  
+
   return {
     sendMessage,
-    // Add other chat methods if needed
   };
 };
 
-// Mock AI client structure
+// Mock AI client structure, kept in parity with used SDK surface
 export const mockAi = {
   models: {
     generateContent: vi.fn(),
@@ -47,7 +72,7 @@ export const mockAi = {
   chats: {
     create: vi.fn().mockReturnValue(createMockChat()),
   },
-};
+} satisfies GeminiClientLike;
 
 // Helper to setup vi.mock for client module
 export const setupGeminiClientMock = () => {

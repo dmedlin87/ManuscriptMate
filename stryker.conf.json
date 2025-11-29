@@ -1,0 +1,17 @@
+{
+  "$schema": "https://stryker-mutator.io/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "coverageAnalysis": "perTest",
+  "mutator": "typescript",
+  "mutate": [
+    "services/gemini/**/*.ts",
+    "!services/gemini/**/*.test.ts",
+    "!tests/**/*.ts",
+    "!tests/**/*.tsx"
+  ],
+  "vitest": {
+    "configFile": "vite.config.ts"
+  },
+  "reporters": ["clear-text", "progress", "html"],
+  "tempDirName": ".stryker-tmp"
+}
