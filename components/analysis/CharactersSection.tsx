@@ -4,9 +4,26 @@ import { AnalysisResult } from '../../types';
 interface Props {
     characters: AnalysisResult['characters'];
     onQuoteClick: (quote?: string) => void;
+    onFixRequest?: (issueContext: string, suggestion: string) => void;
 }
 
-export const CharactersSection: React.FC<Props> = ({ characters, onQuoteClick }) => {
+export const CharactersSection: React.FC<Props> = ({ characters, onQuoteClick, onFixRequest }) => {
+  const handleInconsistencyFix = (e: React.MouseEvent, charName: string, inc: { issue: string; quote?: string }) => {
+    e.stopPropagation();
+    if (onFixRequest) {
+      const context = inc.quote 
+        ? `Character "${charName}" - "${inc.quote}"` 
+        : `Character "${charName}"`;
+      onFixRequest(context, `Fix this inconsistency: ${inc.issue}`);
+    }
+  };
+
+  const handleSuggestionFix = (e: React.MouseEvent, charName: string, suggestion: string) => {
+    e.stopPropagation();
+    if (onFixRequest) {
+      onFixRequest(`Character "${charName}" development`, suggestion);
+    }
+  };
   return (
     <div>
     <h3 className="text-lg font-serif font-bold text-gray-800 border-b border-gray-100 pb-2 mb-4">Character Development</h3>
@@ -77,7 +94,17 @@ export const CharactersSection: React.FC<Props> = ({ characters, onQuoteClick })
                         <ul className="list-disc list-inside text-xs text-gray-700 space-y-2">
                             {char.inconsistencies.map((inc, i) => (
                                 <li key={i} className="group cursor-pointer hover:text-red-800" onClick={() => onQuoteClick(inc.quote)}>
-                                    <span>{inc.issue}</span>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <span>{inc.issue}</span>
+                                        {onFixRequest && (
+                                            <button
+                                                onClick={(e) => handleInconsistencyFix(e, char.name, inc)}
+                                                className="shrink-0 px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[9px] font-medium transition-colors"
+                                            >
+                                                ✨ Fix
+                                            </button>
+                                        )}
+                                    </div>
                                     {inc.quote && (
                                         <div className="text-[10px] text-gray-500 italic pl-4 mt-1 border-l border-red-200 group-hover:border-red-400">
                                             "{inc.quote}"
@@ -90,9 +117,19 @@ export const CharactersSection: React.FC<Props> = ({ characters, onQuoteClick })
                 )}
                 
                 {/* AI Suggestion */}
-                <div className="mt-4 text-xs bg-indigo-50 text-indigo-800 p-3 rounded-lg border border-indigo-100 flex gap-2">
-                    <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span><strong>Suggestion: </strong> {char.developmentSuggestion}</span>
+                <div className="mt-4 text-xs bg-indigo-50 text-indigo-800 p-3 rounded-lg border border-indigo-100">
+                    <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 shrink-0 mt-0.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="flex-1"><strong>Suggestion: </strong> {char.developmentSuggestion}</span>
+                        {onFixRequest && (
+                            <button
+                                onClick={(e) => handleSuggestionFix(e, char.name, char.developmentSuggestion)}
+                                className="shrink-0 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-medium transition-colors flex items-center gap-1"
+                            >
+                                ✨ Fix with Agent
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         ))}

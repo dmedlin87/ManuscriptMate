@@ -11,6 +11,8 @@ interface ChatInterfaceProps {
   lore?: Lore;
   chapters?: Chapter[];
   analysis?: AnalysisResult | null;
+  initialMessage?: string;
+  onInitialMessageProcessed?: () => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -19,7 +21,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     onAgentAction, 
     lore,
     chapters = [],
-    analysis 
+    analysis,
+    initialMessage,
+    onInitialMessageProcessed
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -56,10 +60,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentState]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !chatRef.current) return;
+  // Handle initial message from Smart Apply
+  useEffect(() => {
+    if (initialMessage && chatRef.current && !isLoading) {
+      setInput(initialMessage);
+      // Auto-send after a brief delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        sendMessageWithText(initialMessage);
+        if (onInitialMessageProcessed) {
+          onInitialMessageProcessed();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [initialMessage]);
 
-    const userMsg: ChatMessage = { role: 'user', text: input, timestamp: new Date() };
+  const sendMessageWithText = async (messageText: string) => {
+    if (!messageText.trim() || !chatRef.current) return;
+
+    const userMsg: ChatMessage = { role: 'user', text: messageText, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
@@ -74,7 +93,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       Total Text Length: ${editorContext.totalLength}
       
       [USER REQUEST]
-      ${input}
+      ${messageText}
       `;
 
       // 2. Send to Gemini
@@ -155,6 +174,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setIsLoading(false);
       setAgentState('idle');
     }
+  };
+
+  const sendMessage = () => {
+    sendMessageWithText(input);
   };
 
   return (

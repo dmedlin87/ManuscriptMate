@@ -1,4 +1,5 @@
 import { Modality, LiveServerMessage } from "@google/genai";
+import { ModelConfig } from "../../config/models";
 import { ai } from "./client";
 import { base64ToUint8Array, createBlob, decodeAudioData } from "../audioUtils";
 import { LIVE_AGENT_SYSTEM_INSTRUCTION } from "./prompts";
@@ -6,7 +7,7 @@ import { LIVE_AGENT_SYSTEM_INSTRUCTION } from "./prompts";
 export const generateSpeech = async (text: string): Promise<AudioBuffer | null> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: ModelConfig.tts,
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -45,7 +46,7 @@ export const connectLiveSession = async (
   const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
   
   const sessionPromise = ai.live.connect({
-    model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+    model: ModelConfig.liveAudio,
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {

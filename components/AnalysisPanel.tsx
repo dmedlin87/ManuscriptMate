@@ -7,14 +7,25 @@ interface AnalysisPanelProps {
   isLoading: boolean;
   currentText: string;
   onNavigate: (start: number, end: number) => void;
+  onFixRequest?: (issueContext: string, suggestion: string) => void;
 }
 
-export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isLoading, currentText, onNavigate }) => {
+export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isLoading, currentText, onNavigate, onFixRequest }) => {
   
   const handleQuoteClick = (quote?: string) => {
     if (!quote) return;
     const range = findQuoteRange(currentText, quote);
     if (range) onNavigate(range.start, range.end);
+  };
+
+  const handleFixClick = (e: React.MouseEvent, issue: { issue: string; suggestion: string; quote?: string; location?: string }) => {
+    e.stopPropagation();
+    if (onFixRequest) {
+      const context = issue.quote 
+        ? `"${issue.quote}"${issue.location ? ` (${issue.location})` : ''}` 
+        : issue.location || 'Unknown location';
+      onFixRequest(context, issue.suggestion);
+    }
   };
 
   if (isLoading) {
@@ -67,7 +78,17 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isLoadin
                className="p-3 bg-[var(--error-100)] border-l-4 border-[var(--error-500)] rounded-r-md cursor-pointer hover:translate-x-1 transition-transform"
              >
                 <h5 className="text-[var(--text-sm)] font-semibold text-[var(--error-500)] mb-1">{issue.issue}</h5>
-                <p className="text-[var(--text-xs)] text-[var(--ink-600)]">{issue.suggestion}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[var(--text-xs)] text-[var(--ink-600)]">{issue.suggestion}</p>
+                  {onFixRequest && (
+                    <button
+                      onClick={(e) => handleFixClick(e, issue)}
+                      className="shrink-0 px-2 py-1 bg-[var(--magic-500)] hover:bg-[var(--magic-600)] text-white rounded text-[10px] font-medium transition-colors flex items-center gap-1"
+                    >
+                      ✨ Fix with Agent
+                    </button>
+                  )}
+                </div>
              </div>
           ))}
           {analysis.settingAnalysis?.issues.map((issue, i) => (
@@ -77,7 +98,17 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isLoadin
                className="p-3 bg-[var(--warning-100)] border-l-4 border-[var(--warning-500)] rounded-r-md cursor-pointer hover:translate-x-1 transition-transform"
              >
                 <h5 className="text-[var(--text-sm)] font-semibold text-[var(--warning-500)] mb-1">{issue.issue}</h5>
-                <p className="text-[var(--text-xs)] text-[var(--ink-600)]">{issue.suggestion}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[var(--text-xs)] text-[var(--ink-600)]">{issue.suggestion}</p>
+                  {onFixRequest && (
+                    <button
+                      onClick={(e) => handleFixClick(e, issue)}
+                      className="shrink-0 px-2 py-1 bg-[var(--magic-500)] hover:bg-[var(--magic-600)] text-white rounded text-[10px] font-medium transition-colors flex items-center gap-1"
+                    >
+                      ✨ Fix with Agent
+                    </button>
+                  )}
+                </div>
              </div>
           ))}
         </div>

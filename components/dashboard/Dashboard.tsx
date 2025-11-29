@@ -7,9 +7,10 @@ interface DashboardProps {
     isLoading: boolean;
     analysis: AnalysisResult | null;
     currentText: string;
+    onFixRequest?: (issueContext: string, suggestion: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ isLoading, analysis, currentText }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ isLoading, analysis, currentText, onFixRequest }) => {
     const { handleNavigateToIssue } = useManuscript();
 
     return (
@@ -17,7 +18,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isLoading, analysis, curre
             analysis={analysis} 
             isLoading={isLoading} 
             currentText={currentText}
-            onNavigate={handleNavigateToIssue} 
+            onNavigate={handleNavigateToIssue}
+            onFixRequest={onFixRequest}
         />
     );
 };

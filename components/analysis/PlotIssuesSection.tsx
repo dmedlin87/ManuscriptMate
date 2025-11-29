@@ -1,16 +1,28 @@
 import React from 'react';
 
-interface Props {
-    issues: Array<{
-        issue: string;
-        location: string;
-        suggestion: string;
-        quote?: string;
-    }>;
-    onQuoteClick: (quote?: string) => void;
+interface PlotIssue {
+    issue: string;
+    location: string;
+    suggestion: string;
+    quote?: string;
 }
 
-export const PlotIssuesSection: React.FC<Props> = ({ issues, onQuoteClick }) => {
+interface Props {
+    issues: PlotIssue[];
+    onQuoteClick: (quote?: string) => void;
+    onFixRequest?: (issueContext: string, suggestion: string) => void;
+}
+
+export const PlotIssuesSection: React.FC<Props> = ({ issues, onQuoteClick, onFixRequest }) => {
+  const handleFixClick = (e: React.MouseEvent, issue: PlotIssue) => {
+    e.stopPropagation();
+    if (onFixRequest) {
+      const context = issue.quote 
+        ? `"${issue.quote}" (${issue.location})` 
+        : issue.location;
+      onFixRequest(context, issue.suggestion);
+    }
+  };
   return (
     <div>
     <h3 className="text-lg font-serif font-bold text-gray-800 border-b border-gray-100 pb-2 mb-4">Plot Analysis</h3>
@@ -35,8 +47,18 @@ export const PlotIssuesSection: React.FC<Props> = ({ issues, onQuoteClick }) => 
                              "{issue.quote}"
                          </div>
                     )}
-                    <div className="bg-red-50 p-3 rounded text-xs text-red-800">
-                        <strong>Fix: </strong> {issue.suggestion}
+                    <div className="bg-red-50 p-3 rounded text-xs text-red-800 flex items-start justify-between gap-2">
+                        <div>
+                            <strong>Fix: </strong> {issue.suggestion}
+                        </div>
+                        {onFixRequest && (
+                            <button
+                                onClick={(e) => handleFixClick(e, issue)}
+                                className="shrink-0 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-medium transition-colors flex items-center gap-1"
+                            >
+                                ✨ Fix with Agent
+                            </button>
+                        )}
                     </div>
                     {issue.quote && (
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

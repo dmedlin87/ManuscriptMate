@@ -1,8 +1,10 @@
 import { Type, FunctionDeclaration, UsageMetadata } from "@google/genai";
 import { AnalysisResult } from "../../types";
 import { Lore } from "../../types/schema";
+import { ModelConfig } from "../../config/models";
 import { ai } from "./client";
 import { REWRITE_SYSTEM_INSTRUCTION, CONTEXTUAL_HELP_SYSTEM_INSTRUCTION, AGENT_SYSTEM_INSTRUCTION } from "./prompts";
+import { safeParseJson, validators } from "./resilientParser";
 
 export const agentTools: FunctionDeclaration[] = [
   {
@@ -41,7 +43,7 @@ export const agentTools: FunctionDeclaration[] = [
 ];
 
 export const rewriteText = async (text: string, mode: string, tone?: string, setting?: { timePeriod: string, location: string }, _signal?: AbortSignal): Promise<{ result: string[]; usage?: UsageMetadata }> => {
-  const model = 'gemini-3-pro-preview';
+  const model = ModelConfig.analysis;
 
   const settingInstruction = setting 
     ? `The manuscript is set in ${setting.timePeriod} in ${setting.location}. Ensure all language, objects, and dialogue are historically and geographically accurate to this setting.`
@@ -73,10 +75,16 @@ ${mode === 'Tone Tuner' ? `Target Tone: ${tone}` : ''}`;
       },
     });
 
-    const jsonText = response.text || "{}";
-    const result = JSON.parse(jsonText);
+    // Use resilient parser
+    const parseResult = safeParseJson(response.text, { variations: [] });
+    
+    if (!parseResult.success) {
+      console.warn('[rewriteText] Parse failed:', parseResult.error);
+    }
+    
+    const data = parseResult.data as { variations?: string[] };
     return {
-      result: result.variations || [],
+      result: data?.variations || [],
       usage: response.usageMetadata
     };
   } catch (e) {
@@ -86,7 +94,7 @@ ${mode === 'Tone Tuner' ? `Target Tone: ${tone}` : ''}`;
 };
 
 export const getContextualHelp = async (text: string, type: 'Explain' | 'Thesaurus', _signal?: AbortSignal): Promise<{ result: string; usage?: UsageMetadata }> => {
-  const model = 'gemini-2.5-flash'; 
+  const model = ModelConfig.tools; 
   
   const prompt = `Type: ${type}\nText: "${text}"\nKeep the answer short and helpful.`;
 
@@ -151,7 +159,7 @@ export const createAgentSession = (lore?: Lore, analysis?: AnalysisResult, fullM
     .replace('{{FULL_MANUSCRIPT}}', fullManuscriptContext || "No manuscript content loaded.");
 
   return ai.chats.create({
-    model: 'gemini-2.5-flash', 
+    model: ModelConfig.agent, 
     config: {
       systemInstruction,
       tools: [{ functionDeclarations: agentTools }]

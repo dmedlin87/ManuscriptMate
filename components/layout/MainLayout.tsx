@@ -54,6 +54,7 @@ export const MainLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SidebarTab>(SidebarTab.ANALYSIS);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isToolsCollapsed, setIsToolsCollapsed] = useState(false);
+  const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
 
   // If no project is selected, show Dashboard/Upload
   if (!currentProject) {
@@ -69,6 +70,18 @@ export const MainLayout: React.FC = () => {
   const handleTabChange = (tab: SidebarTab) => {
     setActiveTab(tab);
     setIsToolsCollapsed(false);
+  };
+
+  // Smart Apply: Handle fix request from Analysis panel
+  const handleFixRequest = (issueContext: string, suggestion: string) => {
+    const prompt = `I need to fix an issue. Context: ${issueContext}. Suggestion: ${suggestion}. Please locate this in the text and rewrite it using the update_manuscript tool.`;
+    setChatInitialMessage(prompt);
+    setActiveTab(SidebarTab.CHAT);
+    setIsToolsCollapsed(false);
+  };
+
+  const handleInitialMessageProcessed = () => {
+    setChatInitialMessage(undefined);
   };
 
   const handleHomeClick = () => {
@@ -152,6 +165,7 @@ export const MainLayout: React.FC = () => {
                  isLoading={engine.state.isAnalyzing}
                  analysis={activeChapter?.lastAnalysis || null}
                  currentText={currentText}
+                 onFixRequest={handleFixRequest}
               />
             )}
             {activeTab === SidebarTab.CHAT && (
@@ -162,6 +176,8 @@ export const MainLayout: React.FC = () => {
                 lore={currentProject?.lore}
                 chapters={chapters}
                 analysis={activeChapter?.lastAnalysis}
+                initialMessage={chatInitialMessage}
+                onInitialMessageProcessed={handleInitialMessageProcessed}
               />
             )}
             {activeTab === SidebarTab.HISTORY && (

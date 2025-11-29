@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useViewportCollision } from '../hooks/useViewportCollision';
 
 interface MagicBarProps {
   isLoading: boolean;
@@ -87,6 +88,25 @@ export const MagicBar: React.FC<MagicBarProps> = ({
   const [activeView, setActiveView] = useState<'menu' | 'tone' | 'variations' | 'help'>('menu');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  // Determine element dimensions based on current view for collision detection
+  const elementDimensions = useMemo(() => {
+    if (activeView === 'variations' || activeView === 'help') {
+      return { elementWidth: 480, elementHeight: 400 };
+    }
+    // Menu/tone view is smaller
+    return { elementWidth: 500, elementHeight: 60 };
+  }, [activeView]);
+
+  // Use viewport-aware positioning
+  const safePosition = useViewportCollision(position, {
+    padding: 16,
+    preferVertical: 'above',
+    ...elementDimensions,
+  });
+
+  // Use safe position if available, fallback to original
+  const displayPosition = safePosition || position;
+
   // Auto-switch views based on incoming props
   useEffect(() => {
     if (isLoading) return; // Stay on whatever view if loading, typically loading view renders separately
@@ -109,7 +129,7 @@ export const MagicBar: React.FC<MagicBarProps> = ({
   if (isLoading) {
     return (
       <div 
-        style={{ top: position.top, left: position.left }}
+        style={{ top: displayPosition.top, left: displayPosition.left }}
         className="fixed z-50 -translate-x-1/2 -translate-y-full -mt-4 animate-scale-in origin-bottom"
       >
         <div className="relative bg-[var(--ink-950)] text-white rounded-full px-6 py-3 shadow-[var(--shadow-magic)] flex items-center gap-3 border border-[var(--ink-800)]">
@@ -135,8 +155,12 @@ export const MagicBar: React.FC<MagicBarProps> = ({
   // --- Render Content ---
   return (
     <div 
-      style={{ top: position.top, left: position.left }}
-      className="fixed z-50 -translate-x-1/2 -translate-y-full -mt-4 animate-scale-in origin-bottom"
+      style={{ top: displayPosition.top, left: displayPosition.left }}
+      className={`fixed z-50 -translate-x-1/2 -mt-4 animate-scale-in ${
+        safePosition?.adjustments.vertical === 'down' 
+          ? 'origin-top' 
+          : '-translate-y-full origin-bottom'
+      }`}
     >
       {/* 1. Main Menu & Tone Selector (Dark Theme) */}
       {(activeView === 'menu' || activeView === 'tone') && (

@@ -1,16 +1,30 @@
 import { Type, UsageMetadata } from "@google/genai";
 import { AnalysisResult, PlotSuggestion } from "../../types";
 import { ManuscriptIndex } from "../../types/schema";
+import { ModelConfig, ThinkingBudgets } from "../../config/models";
 import { ai } from "./client";
 import { ANALYSIS_PROMPT, PLOT_IDEAS_PROMPT } from "./prompts";
+import { safeParseJson } from "./resilientParser";
+import { prepareAnalysisText } from "./tokenGuard";
+
+/** Default/fallback analysis result for error cases */
+const EMPTY_ANALYSIS: AnalysisResult = {
+  summary: 'Analysis could not be completed.',
+  strengths: [],
+  weaknesses: [],
+  pacing: { score: 0, analysis: '', slowSections: [], fastSections: [] },
+  plotIssues: [],
+  characters: [],
+  generalSuggestions: [],
+};
 
 export const analyzeDraft = async (
     text: string, 
     setting?: { timePeriod: string, location: string }, 
     manuscriptIndex?: ManuscriptIndex,
     _signal?: AbortSignal
-): Promise<{ result: AnalysisResult; usage?: UsageMetadata }> => {
-  const model = 'gemini-3-pro-preview'; 
+): Promise<{ result: AnalysisResult; usage?: UsageMetadata; warning?: string }> => {
+  const model = ModelConfig.analysis; 
   
   const settingContext = setting 
     ? `SETTING CONTEXT: Time Period: ${setting.timePeriod}, Location: ${setting.location}.` 
@@ -25,17 +39,20 @@ export const analyzeDraft = async (
        ).join('\n')}`
   : '';
 
+  // Prepare text with token guard
+  const { text: safeText, warning } = prepareAnalysisText(text);
+
   const prompt = ANALYSIS_PROMPT
     .replace('{{SETTING_CONTEXT}}', settingContext)
     .replace('{{INDEX_CONTEXT}}', indexContext)
     .replace('{{SETTING_LABEL}}', setting ? 'specified time period' : 'apparent setting')
-    .replace('{{TEXT}}', text.slice(0, 45000));
+    .replace('{{TEXT}}', safeText);
 
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      thinkingConfig: { thinkingBudget: 32768 },
+      thinkingConfig: { thinkingBudget: ThinkingBudgets.analysis },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -145,26 +162,36 @@ export const analyzeDraft = async (
     },
   });
 
-  const jsonText = response.text || "{}";
+  // Use resilient parser for non-deterministic LLM output
+  const parseResult = safeParseJson<AnalysisResult>(response.text, EMPTY_ANALYSIS);
+  
+  if (!parseResult.success) {
+    console.warn('[analyzeDraft] Parse failed:', parseResult.error);
+  }
+
   return {
-    result: JSON.parse(jsonText) as AnalysisResult,
-    usage: response.usageMetadata
+    result: parseResult.data!,
+    usage: response.usageMetadata,
+    warning: warning || (parseResult.sanitized ? 'Response required sanitization' : undefined),
   };
 };
 
-export const generatePlotIdeas = async (text: string, userInstruction?: string, suggestionType: string = 'General'): Promise<{ result: PlotSuggestion[]; usage?: UsageMetadata }> => {
-  const model = 'gemini-3-pro-preview';
+export const generatePlotIdeas = async (text: string, userInstruction?: string, suggestionType: string = 'General'): Promise<{ result: PlotSuggestion[]; usage?: UsageMetadata; warning?: string }> => {
+  const model = ModelConfig.analysis;
   
+  // Prepare text with token guard
+  const { text: safeText, warning } = prepareAnalysisText(text);
+
   const prompt = PLOT_IDEAS_PROMPT
     .replace('{{SUGGESTION_TYPE}}', suggestionType)
     .replace('{{USER_INSTRUCTION}}', userInstruction || 'None - provide best options based on analysis')
-    .replace('{{TEXT}}', text.slice(0, 45000));
+    .replace('{{TEXT}}', safeText);
 
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      thinkingConfig: { thinkingBudget: 8192 },
+      thinkingConfig: { thinkingBudget: ThinkingBudgets.plotIdeas },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -181,9 +208,16 @@ export const generatePlotIdeas = async (text: string, userInstruction?: string, 
     }
   });
 
-  const jsonText = response.text || "[]";
+  // Use resilient parser
+  const parseResult = safeParseJson<PlotSuggestion[]>(response.text, []);
+  
+  if (!parseResult.success) {
+    console.warn('[generatePlotIdeas] Parse failed:', parseResult.error);
+  }
+
   return {
-    result: JSON.parse(jsonText) as PlotSuggestion[],
-    usage: response.usageMetadata
+    result: parseResult.data!,
+    usage: response.usageMetadata,
+    warning: warning || (parseResult.sanitized ? 'Response required sanitization' : undefined),
   };
 };
