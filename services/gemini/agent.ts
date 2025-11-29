@@ -7,7 +7,9 @@ import { REWRITE_SYSTEM_INSTRUCTION, CONTEXTUAL_HELP_SYSTEM_INSTRUCTION, AGENT_S
 import { safeParseJson, validators } from "./resilientParser";
 import { Persona, buildPersonaInstruction } from "../../types/personas";
 import { CritiqueIntensity, DEFAULT_CRITIQUE_INTENSITY } from "../../types/critiqueSettings";
+import { ExperienceLevel, AutonomyMode, DEFAULT_EXPERIENCE, DEFAULT_AUTONOMY } from "../../types/experienceSettings";
 import { getIntensityModifier } from "./critiquePrompts";
+import { getExperienceModifier, getAutonomyModifier } from "./experiencePrompts";
 
 export const agentTools: FunctionDeclaration[] = [
   {
@@ -118,7 +120,9 @@ export const createAgentSession = (
   analysis?: AnalysisResult, 
   fullManuscriptContext?: string, 
   persona?: Persona,
-  intensity: CritiqueIntensity = DEFAULT_CRITIQUE_INTENSITY
+  intensity: CritiqueIntensity = DEFAULT_CRITIQUE_INTENSITY,
+  experience: ExperienceLevel = DEFAULT_EXPERIENCE,
+  autonomy: AutonomyMode = DEFAULT_AUTONOMY
 ) => {
   let loreContext = "";
   if (lore) {
@@ -163,12 +167,17 @@ export const createAgentSession = (
   }
 
   const intensityModifier = getIntensityModifier(intensity);
+  const experienceModifier = getExperienceModifier(experience);
+  const autonomyModifier = getAutonomyModifier(autonomy);
 
   let systemInstruction = AGENT_SYSTEM_INSTRUCTION
     .replace('{{INTENSITY_MODIFIER}}', intensityModifier)
     .replace('{{LORE_CONTEXT}}', loreContext)
     .replace('{{ANALYSIS_CONTEXT}}', analysisContext)
     .replace('{{FULL_MANUSCRIPT}}', fullManuscriptContext || "No manuscript content loaded.");
+
+  // Append experience and autonomy modifiers
+  systemInstruction += `\n\n${experienceModifier}\n\n${autonomyModifier}`;
 
   // Apply persona instructions if provided
   if (persona) {

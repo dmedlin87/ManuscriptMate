@@ -61,8 +61,10 @@ export function useAgentService(
   const chatRef = useRef<Chat | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  // Subscribe to intensity changes
+  // Subscribe to settings changes
   const critiqueIntensity = useSettingsStore(state => state.critiqueIntensity);
+  const experienceLevel = useSettingsStore(state => state.experienceLevel);
+  const autonomyMode = useSettingsStore(state => state.autonomyMode);
 
   /**
    * Initialize or reinitialize the chat session
@@ -74,13 +76,21 @@ export function useAgentService(
       return `[CHAPTER: ${c.title}]${isActive ? " (ACTIVE - You can edit this)" : " (READ ONLY - Request user to switch)"}\n${c.content}\n`;
     }).join('\n-------------------\n');
 
-    chatRef.current = createAgentSession(lore, analysis || undefined, fullManuscript, currentPersona, critiqueIntensity);
+    chatRef.current = createAgentSession(
+      lore, 
+      analysis || undefined, 
+      fullManuscript, 
+      currentPersona, 
+      critiqueIntensity,
+      experienceLevel,
+      autonomyMode
+    );
     
     // Silent initialization message with persona
     chatRef.current?.sendMessage({ 
       message: `I have loaded the manuscript. Total Chapters: ${chapters.length}. Active Chapter Length: ${fullText.length} characters. I am ${currentPersona.name}, ready to help with my ${currentPersona.role} expertise.` 
     }).catch(console.error);
-  }, [lore, analysis, chapters, fullText, currentPersona, critiqueIntensity]);
+  }, [lore, analysis, chapters, fullText, currentPersona, critiqueIntensity, experienceLevel, autonomyMode]);
 
   // Initialize session on mount and when dependencies change
   useEffect(() => {
