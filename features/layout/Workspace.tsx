@@ -1,63 +1,13 @@
 import React, { useState } from 'react';
-import { useEditor, useQuillAIEngine, useManuscriptIndexer } from '@/features/shared';
-import { useProjectStore } from '@/features/project';
 import { EditorLayout } from './EditorLayout';
 import { SidebarTab } from '@/types';
-import { Contradiction } from '@/types/schema';
 
 interface WorkspaceProps {
   onHomeClick: () => void;
 }
 
 export const Workspace: React.FC<WorkspaceProps> = ({ onHomeClick }) => {
-  const {
-    editor,
-    setEditor,
-    currentText,
-    updateText,
-    commit,
-    history,
-    restore,
-    selectionRange,
-    selectionPos,
-    setSelectionState,
-    clearSelection,
-    activeHighlight,
-    handleNavigateToIssue
-  } = useEditor();
-
-  const { 
-    currentProject, 
-    activeChapterId, 
-    chapters,
-    updateChapterAnalysis, 
-    updateProjectLore,
-    getActiveChapter 
-  } = useProjectStore();
-
-  const activeChapter = getActiveChapter();
-
-  // Engine Layer
-  const engine = useQuillAIEngine({
-    getCurrentText: () => currentText, 
-    currentProject,
-    activeChapterId,
-    updateChapterAnalysis,
-    updateProjectLore,
-    commit,
-    selectionRange,
-    clearSelection
-  });
-
-  // Background Indexing for Contradictions
-  const [contradictions, setContradictions] = useState<Contradiction[]>([]);
-  useManuscriptIndexer(
-    currentText,
-    activeChapterId,
-    (c) => setContradictions(prev => [...prev, ...c])
-  );
-
-  // View State
+  // View State only; all editor/project/engine data now come from contexts in EditorLayout
   const [activeTab, setActiveTab] = useState<SidebarTab>(SidebarTab.ANALYSIS);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isToolsCollapsed, setIsToolsCollapsed] = useState(false);
@@ -68,18 +18,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ onHomeClick }) => {
   };
 
   return (
-    <EditorLayout 
-      activeTab={activeTab} onTabChange={handleTabChange}
-      isSidebarCollapsed={isSidebarCollapsed} onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      isToolsCollapsed={isToolsCollapsed} onToggleTools={() => setIsToolsCollapsed(!isToolsCollapsed)}
+    <EditorLayout
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+      isSidebarCollapsed={isSidebarCollapsed}
+      onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      isToolsCollapsed={isToolsCollapsed}
+      onToggleTools={() => setIsToolsCollapsed(!isToolsCollapsed)}
       onHomeClick={onHomeClick}
-      currentProject={currentProject} activeChapter={activeChapter} chapters={chapters} currentText={currentText} history={history}
-      editor={editor} setEditor={setEditor}
-      onDirectTextChange={updateText} setSelectionState={setSelectionState}
-      selectionRange={selectionRange} selectionPos={selectionPos} activeHighlight={activeHighlight}
-      onNavigateToIssue={handleNavigateToIssue} onRestoreHistory={restore} onClearSelection={clearSelection}
-      engineState={engine.state} engineActions={engine.actions}
-      contradictions={contradictions}
     />
   );
 };

@@ -81,7 +81,7 @@ describe('ProjectDashboard', () => {
 
     render(<ProjectDashboard />);
 
-    const importButton = screen.getByText('Import Draft (.txt/.md)').closest('button');
+    const importButton = screen.getByText('Import Draft').closest('button');
     const fileInput = importButton?.parentElement?.querySelector('input[type="file"]');
     expect(fileInput).toBeInstanceOf(HTMLInputElement);
 

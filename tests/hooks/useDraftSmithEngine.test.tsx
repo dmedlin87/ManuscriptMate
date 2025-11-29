@@ -33,7 +33,7 @@ vi.mock('@/features/editor/hooks/useMagicEditor', () => ({
   })
 }));
 
-import { useQuillAIEngine } from '@/features/shared/hooks// Tests for useQuillAIEngine (formerly useDraftSmithEngine)'
+import { useQuillAIEngine } from '@/features/shared';
 
 const baseResult = {
   result: {
