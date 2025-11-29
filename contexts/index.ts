@@ -28,3 +28,12 @@ export {
 
 // Usage Context (handles API usage tracking)
 export { UsageProvider, useUsage } from './UsageContext';
+
+// Engine Context (handles AI engine: Analysis, Magic Editor, Agents)
+export { 
+  EngineProvider, 
+  useEngine,
+  type EngineState,
+  type EngineActions,
+  type EngineContextValue 
+} from './EngineContext';

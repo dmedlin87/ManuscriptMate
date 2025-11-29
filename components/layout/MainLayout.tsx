@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SidebarTab } from '../../types';
+import { SidebarTab, MainView, CharacterProfile } from '../../types';
 import { ProjectSidebar } from '../ProjectSidebar';
 import { EditorWorkspace } from '../editor/EditorWorkspace';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -8,11 +8,12 @@ import { ChatInterface } from '../ChatInterface';
 import { ActivityFeed } from '../ActivityFeed';
 import { VoiceMode } from '../VoiceMode';
 import { useManuscript } from '../../contexts/ManuscriptContext';
-import { useDraftSmithEngine } from '../../hooks/useDraftSmithEngine';
+import { useEngine } from '../../contexts/EngineContext';
 import { Dashboard } from '../dashboard/Dashboard';
-import { useManuscriptIndexer } from '../../hooks/useManuscriptIndexer';
-import { Contradiction } from '../../types/schema';
 import { UsageBadge } from '../UsageBadge';
+import { StoryBoard } from '../storyboard/StoryBoard';
+import { KnowledgeGraph } from '../graph/KnowledgeGraph';
+import { LoreManager } from '../lore/LoreManager';
 
 // Nav Icons
 const Icons = {
@@ -21,40 +22,27 @@ const Icons = {
   Agent: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>,
   History: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>,
   Mic: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
-  Wand: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5l5 5"/><path d="M2.5 19.5l9.5-9.5"/><path d="M7 6l1 1"/><path d="M14 4l.5.5"/><path d="M17 7l-.5.5"/><path d="M4 9l.5.5"/></svg>
+  Wand: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5l5 5"/><path d="M2.5 19.5l9.5-9.5"/><path d="M7 6l1 1"/><path d="M14 4l.5.5"/><path d="M17 7l-.5.5"/><path d="M4 9l.5.5"/></svg>,
+  Graph: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+  Book: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>,
+  Board: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
 };
 
 export const MainLayout: React.FC = () => {
-  const { currentProject, getActiveChapter, activeChapterId, updateChapterAnalysis, updateProjectLore, chapters } = useProjectStore();
-  const { currentText, commit, selectionRange, clearSelection, history, restore, editor } = useManuscript();
-
-  // Engine Hooks
-  const engine = useDraftSmithEngine({
-    getCurrentText: () => currentText,
-    currentProject,
-    activeChapterId,
-    updateChapterAnalysis,
-    updateProjectLore,
-    commit,
-    selectionRange,
-    clearSelection
-  });
-
-  // Background Indexing
-  const [contradictions, setContradictions] = useState<Contradiction[]>([]);
-  useManuscriptIndexer(
-    currentText,
-    activeChapterId,
-    (c) => setContradictions(prev => [...prev, ...c])
-  );
+  // Consume contexts directly - no more prop drilling
+  const { currentProject, getActiveChapter, chapters } = useProjectStore();
+  const { currentText, selectionRange, history, restore, editor } = useManuscript();
+  const { state: engineState, actions: engineActions } = useEngine();
 
   const activeChapter = getActiveChapter();
 
-  // UI State
+  // UI State (local to this layout)
   const [activeTab, setActiveTab] = useState<SidebarTab>(SidebarTab.ANALYSIS);
+  const [activeView, setActiveView] = useState<MainView>(MainView.EDITOR);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isToolsCollapsed, setIsToolsCollapsed] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
+  const [selectedGraphCharacter, setSelectedGraphCharacter] = useState<CharacterProfile | null>(null);
 
   // If no project is selected, show Dashboard/Upload
   if (!currentProject) {
@@ -88,6 +76,15 @@ export const MainLayout: React.FC = () => {
      window.location.reload(); 
   };
 
+  const handleSelectGraphCharacter = (character: CharacterProfile) => {
+    setSelectedGraphCharacter(character);
+    setActiveTab(SidebarTab.LORE);
+  };
+
+  const handleSwitchToEditor = () => {
+    setActiveView(MainView.EDITOR);
+  };
+
   return (
     <div className="flex w-full h-full bg-[var(--parchment-200)] text-[var(--ink-800)] font-sans">
       
@@ -101,11 +98,28 @@ export const MainLayout: React.FC = () => {
           <Icons.Wand />
         </button>
         
+        {/* View Toggle */}
+        <button
+          onClick={() => setActiveView(activeView === MainView.EDITOR ? MainView.STORYBOARD : MainView.EDITOR)}
+          title={activeView === MainView.EDITOR ? "Story Board" : "Editor"}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all mb-2 ${
+            activeView === MainView.STORYBOARD
+              ? 'bg-[var(--magic-100)] text-[var(--magic-500)]'
+              : 'text-[var(--ink-400)] hover:bg-[var(--parchment-200)] hover:text-[var(--ink-600)]'
+          }`}
+        >
+          <Icons.Board />
+        </button>
+
+        <div className="w-8 border-t border-[var(--ink-100)] mb-2" />
+
         {[
           { tab: SidebarTab.ANALYSIS, icon: <Icons.Analysis />, label: "Analysis" },
           { tab: SidebarTab.CHAT, icon: <Icons.Agent />, label: "Agent" },
           { tab: SidebarTab.HISTORY, icon: <Icons.History />, label: "History" },
-          { tab: SidebarTab.VOICE, icon: <Icons.Mic />, label: "Voice" }
+          { tab: SidebarTab.VOICE, icon: <Icons.Mic />, label: "Voice" },
+          { tab: SidebarTab.GRAPH, icon: <Icons.Graph />, label: "Graph" },
+          { tab: SidebarTab.LORE, icon: <Icons.Book />, label: "Lore Bible" }
         ].map(item => (
           <button
             key={item.tab}
@@ -137,19 +151,19 @@ export const MainLayout: React.FC = () => {
         />
       )}
 
-      {/* 3. Editor Workspace */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* 3. Main Content Area */}
+      {activeView === MainView.STORYBOARD ? (
+        <StoryBoard onSwitchToEditor={handleSwitchToEditor} />
+      ) : (
+        <div className="flex-1 flex flex-col min-w-0">
           <div className="flex items-center justify-between px-6 py-2 bg-[var(--parchment-50)] border-b border-[var(--ink-100)]">
               <div className="flex items-center gap-4">
                   <UsageBadge />
               </div>
           </div>
-          <EditorWorkspace 
-            engineState={engine.state}
-            engineActions={engine.actions}
-            contradictions={contradictions}
-          />
-      </div>
+          <EditorWorkspace />
+        </div>
+      )}
 
       {/* 4. Tools Panel */}
       {!isToolsCollapsed && (
@@ -162,7 +176,7 @@ export const MainLayout: React.FC = () => {
           <div className="flex-1 overflow-hidden relative">
             {activeTab === SidebarTab.ANALYSIS && (
               <Dashboard 
-                 isLoading={engine.state.isAnalyzing}
+                 isLoading={engineState.isAnalyzing}
                  analysis={activeChapter?.lastAnalysis || null}
                  currentText={currentText}
                  onFixRequest={handleFixRequest}
@@ -172,7 +186,7 @@ export const MainLayout: React.FC = () => {
               <ChatInterface 
                 editorContext={editorContext} 
                 fullText={currentText} 
-                onAgentAction={engine.actions.handleAgentAction} 
+                onAgentAction={engineActions.handleAgentAction} 
                 lore={currentProject?.lore}
                 chapters={chapters}
                 analysis={activeChapter?.lastAnalysis}
@@ -188,6 +202,10 @@ export const MainLayout: React.FC = () => {
                />
             )}
             {activeTab === SidebarTab.VOICE && <VoiceMode />}
+            {activeTab === SidebarTab.GRAPH && (
+              <KnowledgeGraph onSelectCharacter={handleSelectGraphCharacter} />
+            )}
+            {activeTab === SidebarTab.LORE && <LoreManager />}
           </div>
         </aside>
       )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SidebarTab, AnalysisResult, EditorContext, HighlightRange, HistoryItem } from '../../types';
+import { SidebarTab, AnalysisResult, EditorContext, HistoryItem } from '../../types';
 import { ProjectSidebar } from '../ProjectSidebar';
 import { AnalysisPanel } from '../AnalysisPanel';
 import { ChatInterface } from '../ChatInterface';
@@ -8,13 +8,21 @@ import { VoiceMode } from '../VoiceMode';
 import { MagicBar } from '../MagicBar';
 import { FindReplaceModal } from '../FindReplaceModal';
 import { VisualDiff } from '../VisualDiff';
-import { PendingDiff } from '../../hooks/useDraftSmithEngine';
-import { Chapter, Contradiction } from '../../types/schema';
 import { RichTextEditor } from '../RichTextEditor';
-import { Editor } from '@tiptap/react';
 import { findQuoteRange } from '../../utils/textLocator';
+import { useManuscript } from '../../contexts/ManuscriptContext';
+import { useProjectStore } from '../../store/useProjectStore';
+import { useEngine } from '../../contexts/EngineContext';
+
+/**
+ * EditorLayout
+ * 
+ * Full editor layout consuming data directly from contexts.
+ * Only UI-specific props for layout state control.
+ */
 
 interface EditorLayoutProps {
+  // UI-specific props only - layout state that lives in parent
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   isSidebarCollapsed: boolean;
@@ -22,41 +30,6 @@ interface EditorLayoutProps {
   isToolsCollapsed: boolean;
   onToggleTools: () => void;
   onHomeClick: () => void;
-  currentProject: any;
-  activeChapter: any;
-  chapters: Chapter[];
-  currentText: string;
-  history: HistoryItem[];
-  editor: Editor | null;
-  setEditor: (editor: Editor | null) => void;
-  onDirectTextChange: (text: string) => void;
-  setSelectionState: (range: { start: number; end: number; text: string } | null, pos: { top: number; left: number } | null) => void;
-  selectionRange: { start: number; end: number; text: string } | null;
-  selectionPos: { top: number; left: number } | null;
-  activeHighlight: HighlightRange | null;
-  onNavigateToIssue: (start: number, end: number) => void;
-  onRestoreHistory: (id: string) => void;
-  onClearSelection: () => void;
-  engineState: {
-    isAnalyzing: boolean;
-    magicVariations: string[];
-    activeMagicMode?: string | null;
-    magicHelpResult?: string;
-    magicHelpType?: 'Explain' | 'Thesaurus' | null;
-    isMagicLoading: boolean;
-    pendingDiff: PendingDiff | null;
-  };
-  engineActions: {
-    runAnalysis: () => void;
-    handleRewrite: (mode: string, tone?: string) => void;
-    handleHelp: (type: 'Explain' | 'Thesaurus') => void;
-    applyVariation: (text: string) => void;
-    closeMagicBar: () => void;
-    handleAgentAction: (action: string, params: any) => Promise<string>;
-    acceptDiff: () => void;
-    rejectDiff: () => void;
-  };
-  contradictions?: Contradiction[];
 }
 
 // Nav Icons
@@ -66,22 +39,36 @@ const Icons = {
   Agent: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>,
   History: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>,
   Mic: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
-  Wand: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5l5 5"/><path d="M2.5 19.5l9.5-9.5"/><path d="M7 6l1 1"/><path d="M14 4l.5.5"/><path d="M17 7l-.5.5"/><path d="M4 9l.5.5"/></svg>
+  Wand: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5l5 5"/><path d="M2.5 19.5l9.5-9.5"/><path d="M7 6l1 1"/><path d="M14 4l.5.5"/><path d="M17 7l-.5.5"/><path d="M4 9l.5.5"/></svg>,
+  Close: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 };
 
 export const EditorLayout: React.FC<EditorLayoutProps> = ({
   activeTab, onTabChange,
   isSidebarCollapsed, onToggleSidebar,
   isToolsCollapsed, onToggleTools,
-  onHomeClick,
-  currentProject, activeChapter, chapters, currentText, history,
-  editor, setEditor,
-  onDirectTextChange, setSelectionState,
-  selectionRange, selectionPos, activeHighlight,
-  onNavigateToIssue, onRestoreHistory, onClearSelection,
-  engineState, engineActions,
-  contradictions = []
+  onHomeClick
 }) => {
+  // Consume all data from contexts - no prop drilling
+  const { 
+    currentText, 
+    updateText, 
+    setSelectionState, 
+    selectionRange, 
+    selectionPos, 
+    activeHighlight,
+    setEditor,
+    clearSelection,
+    editor,
+    history,
+    restore,
+    handleNavigateToIssue
+  } = useManuscript();
+
+  const { currentProject, getActiveChapter, chapters } = useProjectStore();
+  const { state: engineState, actions: engineActions, contradictions } = useEngine();
+  
+  const activeChapter = getActiveChapter();
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
   const [viewingHistoryDiff, setViewingHistoryDiff] = useState<{original: string, modified: string, description: string} | null>(null);
 
@@ -206,20 +193,20 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
            </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 relative" onClick={onClearSelection}>
+        <div className="flex-1 overflow-y-auto p-8 relative" onClick={clearSelection}>
            <div className="max-w-3xl mx-auto min-h-[calc(100vh-10rem)] relative" onClick={(e) => e.stopPropagation()}>
              <FindReplaceModal 
                 isOpen={isFindReplaceOpen} 
                 onClose={() => setIsFindReplaceOpen(false)}
                 currentText={currentText}
-                onTextChange={onDirectTextChange}
+                onTextChange={updateText}
                 editor={editor}
               />
               
               <RichTextEditor 
                 key={activeChapter?.id || 'editor'}
                 content={currentText}
-                onUpdate={onDirectTextChange}
+                onUpdate={updateText}
                 onSelectionChange={setSelectionState}
                 setEditorRef={setEditor}
                 activeHighlight={activeHighlight}
@@ -258,7 +245,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
                 analysis={activeChapter?.lastAnalysis || null} 
                 isLoading={engineState.isAnalyzing} 
                 currentText={currentText}
-                onNavigate={onNavigateToIssue} 
+                onNavigate={handleNavigateToIssue} 
               />
             )}
             {activeTab === SidebarTab.CHAT && (
@@ -274,7 +261,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
             {activeTab === SidebarTab.HISTORY && (
               <ActivityFeed 
                 history={history} 
-                onRestore={onRestoreHistory} 
+                onRestore={restore} 
                 onInspect={handleInspectHistory} 
               />
             )}
@@ -290,7 +277,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
              <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden animate-scale-in">
                  <div className="p-4 border-b border-[var(--ink-100)] flex justify-between items-center bg-[var(--parchment-50)]">
                      <h3 className="font-serif font-bold text-[var(--ink-800)]">Review Agent Suggestions</h3>
-                     <button onClick={engineActions.rejectDiff} className="text-[var(--ink-400)] hover:text-[var(--ink-600)]"><Icons.Home /></button> 
+                     <button onClick={engineActions.rejectDiff} className="text-[var(--ink-400)] hover:text-[var(--ink-600)]"><Icons.Close /></button> 
                      {/* Used Home icon as temporary placeholder for X or close */}
                  </div>
                  <div className="flex-1 overflow-y-auto p-6 bg-white">

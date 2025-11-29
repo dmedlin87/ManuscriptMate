@@ -19,6 +19,10 @@ export { useAutoResize } from './useAutoResize';
 export { useMagicEditor } from './useMagicEditor';
 export { useTextSelection } from './useTextSelection';
 
+// DraftSmith 3.0: Inline Comments & Branching
+export { useInlineComments, type UseInlineCommentsOptions, type UseInlineCommentsResult } from './useInlineComments';
+export { useBranching, type UseBranchingOptions, type UseBranchingResult } from './useBranching';
+
 // UI
 export { useViewportCollision } from './useViewportCollision';
 

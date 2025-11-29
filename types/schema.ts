@@ -48,6 +48,32 @@ export interface Project {
   updatedAt: number;
 }
 
+/**
+ * Branch - Version control for chapter content
+ */
+export interface Branch {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: number;
+}
+
+/**
+ * InlineComment - AI critique markers stored with content
+ */
+export interface InlineComment {
+  id: string;
+  type: 'plot' | 'setting' | 'character' | 'pacing' | 'prose';
+  issue: string;
+  suggestion: string;
+  severity: 'error' | 'warning' | 'info';
+  quote: string;
+  startIndex: number;
+  endIndex: number;
+  dismissed: boolean;
+  createdAt: number;
+}
+
 export interface Chapter {
   id: string;
   projectId: string;
@@ -56,6 +82,11 @@ export interface Chapter {
   order: number;
   lastAnalysis?: AnalysisResult;
   updatedAt: number;
+  // DraftSmith 3.0: Branching
+  branches?: Branch[];
+  activeBranchId?: string | null;
+  // DraftSmith 3.0: Inline Comments
+  comments?: InlineComment[];
 }
 
 export interface AppState {

@@ -4,8 +4,11 @@
  * Extracts all audio processing and Gemini Live connection logic
  * from VoiceMode.tsx for clean separation of concerns.
  * 
+ * UPDATED: Uses AudioWorklet instead of deprecated ScriptProcessor
+ * for better performance (offloads audio processing from main thread).
+ * 
  * Handles:
- * - Microphone input capture
+ * - Microphone input capture via AudioWorklet
  * - Audio playback scheduling
  * - Visual frequency analysis
  * - Gemini Live API connection
@@ -56,7 +59,7 @@ export function useVoiceSession(): UseVoiceSessionResult {
   const audioContextRef = useRef<AudioContext | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sessionClientRef = useRef<LiveSessionClient | null>(null);
 
   // Audio scheduling
@@ -86,14 +89,15 @@ export function useVoiceSession(): UseVoiceSessionResult {
     setError(null);
     wasAiSpeakingRef.current = false;
 
-    // 4. Cleanup input
+    // 4. Cleanup input (AudioWorklet)
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
+    if (workletNodeRef.current) {
+      workletNodeRef.current.port.close();
+      workletNodeRef.current.disconnect();
+      workletNodeRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
@@ -162,7 +166,7 @@ export function useVoiceSession(): UseVoiceSessionResult {
   }, []);
 
   /**
-   * Start a new voice session
+   * Start a new voice session using AudioWorklet for main-thread performance
    */
   const startSession = useCallback(async () => {
     try {
@@ -177,9 +181,10 @@ export function useVoiceSession(): UseVoiceSessionResult {
       });
       audioContextRef.current = audioContext;
 
+      // 2. Load AudioWorklet module (replaces deprecated ScriptProcessor)
+      await audioContext.audioWorklet.addModule('/audio-processor.js');
+
       const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
 
       // Input analyser for visuals
       const inputAnalyser = audioContext.createAnalyser();
@@ -188,10 +193,14 @@ export function useVoiceSession(): UseVoiceSessionResult {
       inputAnalyserRef.current = inputAnalyser;
       source.connect(inputAnalyser);
 
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+      // 3. Create AudioWorkletNode (replaces ScriptProcessorNode)
+      const workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+      workletNodeRef.current = workletNode;
 
-      // 2. Setup playback output
+      source.connect(workletNode);
+      workletNode.connect(audioContext.destination);
+
+      // 4. Setup playback output
       const playbackContext = new (window.AudioContext || (window as any).webkitAudioContext)({ 
         sampleRate: 24000 
       });
@@ -205,7 +214,7 @@ export function useVoiceSession(): UseVoiceSessionResult {
       outputAnalyserRef.current = outputAnalyser;
       outputAnalyser.connect(playbackContext.destination);
 
-      // 3. Connect to Gemini Live
+      // 5. Connect to Gemini Live
       const client = await connectLiveSession(
         (audioBuffer) => {
           if (!playbackContextRef.current || !outputAnalyserRef.current) return;
@@ -230,10 +239,20 @@ export function useVoiceSession(): UseVoiceSessionResult {
       );
       sessionClientRef.current = client;
 
-      // 4. Handle input data
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        client.sendAudio(inputData);
+      // 6. Handle audio data from worklet via MessagePort
+      workletNode.port.onmessage = (event) => {
+        if (event.data.type === 'audio') {
+          // Audio data arrives as Int16 ArrayBuffer from worklet
+          const int16Data = new Int16Array(event.data.audioData);
+          
+          // Convert Int16 back to Float32 for Gemini client
+          const float32Data = new Float32Array(int16Data.length);
+          for (let i = 0; i < int16Data.length; i++) {
+            float32Data[i] = int16Data[i] / (int16Data[i] < 0 ? 0x8000 : 0x7FFF);
+          }
+          
+          client.sendAudio(float32Data);
+        }
       };
 
       isConnectedRef.current = true;

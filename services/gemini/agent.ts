@@ -5,6 +5,7 @@ import { ModelConfig } from "../../config/models";
 import { ai } from "./client";
 import { REWRITE_SYSTEM_INSTRUCTION, CONTEXTUAL_HELP_SYSTEM_INSTRUCTION, AGENT_SYSTEM_INSTRUCTION } from "./prompts";
 import { safeParseJson, validators } from "./resilientParser";
+import { Persona, buildPersonaInstruction } from "../../types/personas";
 
 export const agentTools: FunctionDeclaration[] = [
   {
@@ -110,7 +111,7 @@ export const getContextualHelp = async (text: string, type: 'Explain' | 'Thesaur
   };
 };
 
-export const createAgentSession = (lore?: Lore, analysis?: AnalysisResult, fullManuscriptContext?: string) => {
+export const createAgentSession = (lore?: Lore, analysis?: AnalysisResult, fullManuscriptContext?: string, persona?: Persona) => {
   let loreContext = "";
   if (lore) {
     const chars = lore.characters.map(c => `
@@ -153,10 +154,15 @@ export const createAgentSession = (lore?: Lore, analysis?: AnalysisResult, fullM
     `;
   }
 
-  const systemInstruction = AGENT_SYSTEM_INSTRUCTION
+  let systemInstruction = AGENT_SYSTEM_INSTRUCTION
     .replace('{{LORE_CONTEXT}}', loreContext)
     .replace('{{ANALYSIS_CONTEXT}}', analysisContext)
     .replace('{{FULL_MANUSCRIPT}}', fullManuscriptContext || "No manuscript content loaded.");
+
+  // Apply persona instructions if provided
+  if (persona) {
+    systemInstruction = buildPersonaInstruction(systemInstruction, persona);
+  }
 
   return ai.chats.create({
     model: ModelConfig.agent, 

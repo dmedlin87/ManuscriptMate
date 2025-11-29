@@ -3,6 +3,7 @@ import { useProjectStore } from './store/useProjectStore';
 import { ManuscriptProvider } from './contexts/ManuscriptContext';
 import { AnalysisProvider } from './contexts/AnalysisContext';
 import { UsageProvider } from './contexts/UsageContext';
+import { EngineProvider } from './contexts/EngineContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MainLayout } from './components/layout/MainLayout';
 
@@ -17,9 +18,11 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <UsageProvider>
         <ManuscriptProvider>
-          <AnalysisProvider>
-            <MainLayout />
-          </AnalysisProvider>
+          <EngineProvider>
+            <AnalysisProvider>
+              <MainLayout />
+            </AnalysisProvider>
+          </EngineProvider>
         </ManuscriptProvider>
       </UsageProvider>
     </ErrorBoundary>

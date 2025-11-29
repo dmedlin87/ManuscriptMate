@@ -173,4 +173,12 @@ export enum SidebarTab {
   CHAT = 'CHAT',
   VOICE = 'VOICE',
   HISTORY = 'HISTORY',
+  GRAPH = 'GRAPH',
+  LORE = 'LORE',
+  BRANCHES = 'BRANCHES', // DraftSmith 3.0
+}
+
+export enum MainView {
+  EDITOR = 'EDITOR',
+  STORYBOARD = 'STORYBOARD',
 }

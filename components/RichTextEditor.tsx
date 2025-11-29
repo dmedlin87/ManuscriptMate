@@ -1,10 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import { Markdown } from 'tiptap-markdown';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { CommentMark } from './editor/extensions/CommentMark';
+import type { AnyExtension } from '@tiptap/core';
+import { CommentCard } from './editor/CommentCard';
+import { InlineComment } from '../types/schema';
 
 interface HighlightItem {
     start: number;
@@ -20,6 +24,11 @@ interface RichTextEditorProps {
   setEditorRef: (editor: any) => void;
   activeHighlight: { start: number; end: number; type: string } | null;
   analysisHighlights?: HighlightItem[];
+  // DraftSmith 3.0: Inline Comments
+  inlineComments?: InlineComment[];
+  onCommentClick?: (comment: InlineComment, position: { top: number; left: number }) => void;
+  onFixWithAgent?: (issue: string, suggestion: string, quote?: string) => void;
+  onDismissComment?: (commentId: string) => void;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -28,9 +37,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onSelectionChange, 
   setEditorRef,
   activeHighlight,
-  analysisHighlights = []
+  analysisHighlights = [],
+  inlineComments = [],
+  onCommentClick,
+  onFixWithAgent,
+  onDismissComment
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [activeComment, setActiveComment] = useState<(InlineComment & { position: { top: number; left: number } }) | null>(null);
 
   const AnalysisDecorations = useMemo(() => {
     return new Plugin({
@@ -55,11 +69,75 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     });
   }, [analysisHighlights]);
 
+  // Handle comment click from decoration
+  const handleCommentClick = useCallback((commentId: string, event: MouseEvent) => {
+    const comment = inlineComments.find(c => c.id === commentId);
+    if (comment && onCommentClick) {
+      const rect = (event.target as HTMLElement).getBoundingClientRect();
+      onCommentClick(comment, { top: rect.bottom + 8, left: rect.left });
+    }
+    // Also show inline card
+    if (comment) {
+      const rect = (event.target as HTMLElement).getBoundingClientRect();
+      setActiveComment({ ...comment, position: { top: rect.bottom + 8, left: rect.left } });
+    }
+  }, [inlineComments, onCommentClick]);
+
+  // Comment decorations plugin
+  const CommentDecorations = useMemo(() => {
+    return new Plugin({
+      key: new PluginKey('comment-decorations'),
+      props: {
+        decorations(state) {
+          const { doc } = state;
+          const decorations: Decoration[] = [];
+          
+          inlineComments
+            .filter(c => !c.dismissed)
+            .forEach(comment => {
+              if (comment.startIndex < comment.endIndex && comment.endIndex <= doc.content.size) {
+                const severityColors = {
+                  error: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgb(239, 68, 68)' },
+                  warning: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgb(245, 158, 11)' },
+                  info: { bg: 'rgba(99, 102, 241, 0.12)', border: 'rgb(99, 102, 241)' },
+                };
+                const colors = severityColors[comment.severity] || severityColors.warning;
+                
+                decorations.push(
+                  Decoration.inline(comment.startIndex, comment.endIndex, {
+                    class: 'inline-comment-highlight',
+                    style: `background-color: ${colors.bg}; border-bottom: 2px solid ${colors.border}; cursor: pointer;`,
+                    'data-comment-id': comment.id,
+                  })
+                );
+              }
+            });
+          
+          return DecorationSet.create(doc, decorations);
+        },
+        handleClick(view, pos, event) {
+          const target = event.target as HTMLElement;
+          const commentId = target.getAttribute('data-comment-id');
+          if (commentId) {
+            const comment = inlineComments.find(c => c.id === commentId);
+            if (comment) {
+              const rect = target.getBoundingClientRect();
+              setActiveComment({ ...comment, position: { top: rect.bottom + 8, left: rect.left } });
+              return true;
+            }
+          }
+          return false;
+        }
+      }
+    });
+  }, [inlineComments]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Highlight.configure({ multicolor: true }),
       Markdown.configure({ html: false, transformPastedText: true, transformCopiedText: true }),
+      CommentMark as AnyExtension,
     ],
     content: content, 
     editorProps: {
@@ -102,18 +180,36 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (editor && !editor.isDestroyed) {
         const newState = editor.state.reconfigure({ 
             plugins: editor.state.plugins
-                .filter(p => (p.spec.key as any)?.key !== 'analysis-decorations')
-                .concat([AnalysisDecorations]) 
+                .filter(p => {
+                  const key = (p.spec.key as any)?.key;
+                  return key !== 'analysis-decorations' && key !== 'comment-decorations';
+                })
+                .concat([AnalysisDecorations, CommentDecorations]) 
         });
         editor.view.updateState(newState);
     }
-  }, [editor, AnalysisDecorations]);
+  }, [editor, AnalysisDecorations, CommentDecorations]);
 
   useEffect(() => {
     setEditorRef(editor);
   }, [editor, setEditorRef]);
 
+  const handleCloseComment = useCallback(() => {
+    setActiveComment(null);
+  }, []);
+
+  const handleFixWithAgent = useCallback((issue: string, suggestion: string, quote?: string) => {
+    setActiveComment(null);
+    onFixWithAgent?.(issue, suggestion, quote);
+  }, [onFixWithAgent]);
+
+  const handleDismissComment = useCallback((commentId: string) => {
+    setActiveComment(null);
+    onDismissComment?.(commentId);
+  }, [onDismissComment]);
+
   return (
+    <>
     <div 
       className={`bg-[var(--parchment-50)] min-h-[80vh] rounded-sm relative overflow-hidden transition-all duration-700 ease-out-expo animate-fade-in ${
         isFocused 
@@ -132,5 +228,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
            <EditorContent editor={editor} />
         </div>
     </div>
+
+    {/* Floating Comment Card */}
+    {activeComment && (
+      <CommentCard
+        comment={{
+          commentId: activeComment.id,
+          type: activeComment.type,
+          issue: activeComment.issue,
+          suggestion: activeComment.suggestion,
+          severity: activeComment.severity,
+          quote: activeComment.quote,
+        }}
+        position={activeComment.position}
+        onClose={handleCloseComment}
+        onFixWithAgent={handleFixWithAgent}
+        onDismiss={handleDismissComment}
+      />
+    )}
+    </>
   );
 };
