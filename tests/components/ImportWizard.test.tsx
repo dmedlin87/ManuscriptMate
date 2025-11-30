@@ -489,6 +489,29 @@ describe('ImportWizard', () => {
         expect(screen.getByText('Better Title')).toBeInTheDocument();
       });
     });
+
+    it('handles AI enhancement errors gracefully', async () => {
+      const mockOnEnhance = vi.fn().mockRejectedValue(new Error('AI error'));
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+          onAIEnhance={mockOnEnhance}
+        />
+      );
+
+      const enhanceBtn = screen.getByText('Enhance with AI');
+      fireEvent.click(enhanceBtn);
+
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalled();
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('Auto-Fix', () => {
@@ -553,6 +576,36 @@ describe('ImportWizard', () => {
       // Chapter 1 should now be second (swapped or moved)
       expect(result[0].title).not.toBe('Chapter 1: The Beginning');
     });
+
+    it('clears drag state when drag ends', () => {
+      const { container } = render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const items = screen.getAllByText(/Chapter \d:/);
+      const firstItem = items[0].closest('[draggable="true"]') as HTMLElement | null;
+      if (!firstItem) throw new Error('Draggable item not found');
+
+      const mockDataTransfer = {
+        effectAllowed: 'none',
+        setData: vi.fn(),
+        getData: vi.fn(),
+        setDragImage: vi.fn(),
+      };
+
+      fireEvent.dragStart(firstItem, { dataTransfer: mockDataTransfer });
+
+      expect(firstItem.className).toContain('opacity-50');
+
+      const root = container.firstChild as HTMLElement;
+      fireEvent.dragEnd(root);
+
+      expect(firstItem.className).not.toContain('opacity-50');
+    });
   });
 
   describe('Chapter Split', () => {
@@ -576,6 +629,188 @@ describe('ImportWizard', () => {
 
       // Should now have 4 chapters
       expect(screen.getByText(/4 chapters detected/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Keyboard Shortcuts', () => {
+    it('supports undo and redo via keyboard shortcuts', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const titleInput = screen.getByDisplayValue('Chapter 1: The Beginning') as HTMLInputElement;
+      fireEvent.change(titleInput, { target: { value: 'Keyboard Title' } });
+
+      expect(screen.getByDisplayValue('Keyboard Title')).toBeInTheDocument();
+
+      // Undo via Ctrl+Z
+      fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+      expect(screen.getByDisplayValue('Chapter 1: The Beginning')).toBeInTheDocument();
+
+      // Redo via Ctrl+Y
+      fireEvent.keyDown(window, { key: 'y', ctrlKey: true });
+      expect(screen.getByDisplayValue('Keyboard Title')).toBeInTheDocument();
+    });
+
+    it('supports navigation and selection shortcuts', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      // ArrowDown selects second chapter
+      fireEvent.keyDown(window, { key: 'ArrowDown' });
+      expect(screen.getByDisplayValue('Chapter 2: The Journey')).toBeInTheDocument();
+
+      // ArrowUp goes back to first
+      fireEvent.keyDown(window, { key: 'ArrowUp' });
+      expect(screen.getByDisplayValue('Chapter 1: The Beginning')).toBeInTheDocument();
+
+      // Space toggles selection for current chapter
+      fireEvent.keyDown(window, { key: ' ' });
+      expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+      const textarea = screen.getByPlaceholderText('Chapter content...') as HTMLTextAreaElement;
+      expect(document.activeElement).not.toBe(textarea);
+
+      // Enter focuses the editor
+      fireEvent.keyDown(window, { key: 'Enter' });
+      expect(document.activeElement).toBe(textarea);
+    });
+
+    it('opens and closes keyboard shortcuts modal with ? and Escape', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: '?' });
+      expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
+    });
+
+    it('merges chapters via keyboard shortcut', () => {
+      render(
+        <ImportWizard
+          initialChapters={sampleChapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Select All'));
+      expect(screen.getByText('3 selected')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'm', ctrlKey: true });
+      expect(screen.getByText(/2 chapters detected/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Issue Analysis and Quality Score', () => {
+    it('infers epilogue type for the last short chapter', () => {
+      const chapters: ParsedChapter[] = [
+        { title: 'Opening', content: 'word '.repeat(300) },
+        { title: 'Middle', content: 'word '.repeat(300) },
+        { title: 'Climax', content: 'word '.repeat(300) },
+        { title: 'The Final Word', content: 'short ending' },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      const row = screen.getByText('The Final Word').closest('[draggable="true"]');
+      if (!row) throw new Error('Chapter row not found');
+
+      const badge = within(row as HTMLElement).getByText('Epilogue');
+      expect(badge).toBeInTheDocument();
+    });
+
+    it('flags very long chapters with a LONG_CONTENT issue', () => {
+      const longContent = Array.from({ length: 15010 }, () => 'word').join(' ');
+      const chapters: ParsedChapter[] = [
+        { title: 'Big Chapter', content: longContent },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      expect(screen.getByText(/Issues \(1\)/)).toBeInTheDocument();
+      expect(screen.getByText('Chapter is very long. Consider splitting.')).toBeInTheDocument();
+    });
+
+    it('renders yellow quality status for mid-range scores', () => {
+      const chapters: ParsedChapter[] = [
+        { title: 'Quality Test', content: '1\n2\n3\n4\n5\n' },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      expect(screen.getByText('Good')).toBeInTheDocument();
+    });
+
+    it('renders "Needs Work" label for lower scores', () => {
+      const content = '1\n2\n3\n4\n5\n';
+      const chapters: ParsedChapter[] = [
+        { title: 'Chapter 1', content },
+        { title: 'Chapter 1', content },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      expect(screen.getByText('Needs Work')).toBeInTheDocument();
+    });
+
+    it('shows Auto-fixable label for auto-fixable issues', () => {
+      const chapters: ParsedChapter[] = [
+        { title: 'Chapter 1', content: 'Content 1' },
+        { title: 'Chapter 1', content: 'Content 2' },
+      ];
+
+      render(
+        <ImportWizard
+          initialChapters={chapters}
+          onConfirm={mockOnConfirm}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      expect(screen.getByText('Auto-fixable')).toBeInTheDocument();
     });
   });
 });
