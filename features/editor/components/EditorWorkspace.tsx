@@ -55,6 +55,91 @@ const Icons = {
   ),
 };
 
+interface WorkspaceHeaderProps {
+  isZenMode: boolean;
+  isHeaderHovered: boolean;
+  onHeaderHoverChange: (hovered: boolean) => void;
+  activeChapterTitle?: string;
+  projectSetting?: { timePeriod: string; location: string } | null;
+  instantWordCount: number;
+  isIntelligenceProcessing: boolean;
+  isAnalyzing: boolean;
+  onRunAnalysis: () => void;
+}
+
+const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = React.memo(({
+  isZenMode,
+  onHeaderHoverChange,
+  activeChapterTitle,
+  projectSetting,
+  instantWordCount,
+  isIntelligenceProcessing,
+  isAnalyzing,
+  onRunAnalysis,
+}) => (
+  <motion.header
+    initial={isZenMode ? { y: -60, opacity: 0 } : false}
+    animate={{ y: 0, opacity: 1 }}
+    exit={{ y: -60, opacity: 0 }}
+    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    className={`h-14 border-b border-[var(--ink-100)] flex items-center justify-between px-6 bg-[var(--parchment-50)] shrink-0 w-full ${
+      isZenMode ? 'fixed top-0 left-0 right-0 z-50' : ''
+    }`}
+    onMouseEnter={() => isZenMode && onHeaderHoverChange(true)}
+    onMouseLeave={() => onHeaderHoverChange(false)}
+  >
+    <div className="flex items-center gap-3">
+      <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--ink-900)]">
+        {activeChapterTitle || 'No Active Chapter'}
+      </h2>
+      {projectSetting && (
+        <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--magic-100)] text-[var(--magic-500)] font-medium">
+          {projectSetting.timePeriod} 
+          {" "}
+          •
+          {" "}
+          {projectSetting.location}
+        </span>
+      )}
+    </div>
+
+    <div className="flex items-center gap-4">
+      <span className="text-[var(--text-sm)] text-[var(--ink-400)] font-medium">
+        {instantWordCount}
+        {" "}
+        words
+      </span>
+      {isIntelligenceProcessing && (
+        <span className="text-[var(--text-xs)] text-[var(--magic-500)]">
+          analyzing...
+        </span>
+      )}
+      <button
+        onClick={onRunAnalysis}
+        disabled={isAnalyzing}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
+      >
+        {isAnalyzing ? (
+          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Icons.Wand />
+        )}
+        Deep Analysis
+      </button>
+    </div>
+  </motion.header>
+));
+
+const MemoFindReplaceModal = React.memo(
+  FindReplaceModal,
+  (prev, next) => {
+    if (!prev.isOpen && !next.isOpen) {
+      return true;
+    }
+    return false;
+  }
+);
+
 export const EditorWorkspace: React.FC = () => {
   // Consume editor state and actions from split contexts
   const {
@@ -76,7 +161,10 @@ export const EditorWorkspace: React.FC = () => {
     dismissComment,
   } = useEditorActions();
 
-  const { getActiveChapter, currentProject } = useProjectStore();
+  const { getActiveChapter, currentProject } = useProjectStore((state) => ({
+    getActiveChapter: state.getActiveChapter,
+    currentProject: state.currentProject,
+  }));
   const { state: engineState, actions: engineActions } = useEngine();
 
   const activeChapter = getActiveChapter();
@@ -230,53 +318,17 @@ export const EditorWorkspace: React.FC = () => {
       {/* Header - Auto-hide in Zen Mode */}
       <AnimatePresence>
         {(!isZenMode || isHeaderHovered) && (
-          <motion.header
-            initial={isZenMode ? { y: -60, opacity: 0 } : false}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`h-14 border-b border-[var(--ink-100)] flex items-center justify-between px-6 bg-[var(--parchment-50)] shrink-0 w-full ${
-              isZenMode ? "fixed top-0 left-0 right-0 z-50" : ""
-            }`}
-            onMouseEnter={() => isZenMode && setIsHeaderHovered(true)}
-            onMouseLeave={() => setIsHeaderHovered(false)}
-          >
-            <div className="flex items-center gap-3">
-              <h2 className="font-serif font-medium text-[var(--text-lg)] text-[var(--ink-900)]">
-                {activeChapter?.title || "No Active Chapter"}
-              </h2>
-              {currentProject?.setting && (
-                <span className="text-[var(--text-xs)] px-2 py-0.5 rounded bg-[var(--magic-100)] text-[var(--magic-500)] font-medium">
-                  {currentProject.setting.timePeriod} •{" "}
-                  {currentProject.setting.location}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4">
-              <span className="text-[var(--text-sm)] text-[var(--ink-400)] font-medium">
-                {instantMetrics.wordCount}{" "}
-                words
-              </span>
-              {isIntelligenceProcessing && (
-                <span className="text-[var(--text-xs)] text-[var(--magic-500)]">
-                  analyzing...
-                </span>
-              )}
-              <button
-                onClick={engineActions.runAnalysis}
-                disabled={engineState.isAnalyzing}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
-              >
-                {engineState.isAnalyzing ? (
-                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Icons.Wand />
-                )}
-                Deep Analysis
-              </button>
-            </div>
-          </motion.header>
+          <WorkspaceHeader
+            isZenMode={isZenMode}
+            isHeaderHovered={isHeaderHovered}
+            onHeaderHoverChange={setIsHeaderHovered}
+            activeChapterTitle={activeChapter?.title}
+            projectSetting={currentProject?.setting || null}
+            instantWordCount={instantMetrics.wordCount}
+            isIntelligenceProcessing={isIntelligenceProcessing}
+            isAnalyzing={engineState.isAnalyzing}
+            onRunAnalysis={engineActions.runAnalysis}
+          />
         )}
       </AnimatePresence>
 
@@ -300,7 +352,7 @@ export const EditorWorkspace: React.FC = () => {
           }`}
           onClick={(e) => e.stopPropagation()}
         >
-          <FindReplaceModal
+          <MemoFindReplaceModal
             isOpen={isFindReplaceOpen}
             onClose={() => setIsFindReplaceOpen(false)}
             currentText={currentText}

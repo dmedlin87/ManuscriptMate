@@ -189,7 +189,7 @@ describe('generateSpeech', () => {
 
     mockAi.models.generateContent.mockResolvedValue(mockResponse);
 
-    const { decodeAudioData } = await import('@/features/voice/services/audioUtils');
+    const { decodeAudioData } = await import('@/features/voice');
     vi.mocked(decodeAudioData).mockRejectedValue(new Error('Decoding failed'));
 
     const result = await generateSpeech('Hello world');
@@ -218,7 +218,7 @@ describe('generateSpeech', () => {
 
     mockAi.models.generateContent.mockResolvedValue(mockResponse);
 
-    const { decodeAudioData } = await import('@/features/voice/services/audioUtils');
+    const { decodeAudioData } = await import('@/features/voice');
     vi.mocked(decodeAudioData).mockResolvedValue(mockAudioBuffer);
 
     await generateSpeech('Hello world');

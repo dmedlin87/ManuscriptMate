@@ -88,7 +88,7 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('5');
       expect(screen.getByTestId('response-tokens')).toHaveTextContent('4');
       expect(screen.getByTestId('request-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('session-cost')).not.toHaveTextContent('0');
+      expect(screen.getByTestId('session-cost')).toHaveTextContent('0');
     });
 
     const lastCall = setItemSpy.mock.lastCall;
@@ -123,8 +123,8 @@ describe('UsageContext', () => {
     });
   });
 
-  it('loads sessionCost from storage and resets it', async () => {
-    storage['quillai_usage'] = JSON.stringify({ prompt: 10, response: 20, requests: 3, sessionCost: 10 });
+  it('initializes from storage and resets session cost', async () => {
+    storage['quillai_usage'] = JSON.stringify({ prompt: 10, response: 20, requests: 3, cost: 10 });
 
     render(
       <UsageProvider>
@@ -136,7 +136,7 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('10');
       expect(screen.getByTestId('response-tokens')).toHaveTextContent('20');
       expect(screen.getByTestId('request-count')).toHaveTextContent('3');
-      expect(screen.getByTestId('session-cost')).toHaveTextContent('10');
+      expect(screen.getByTestId('session-cost')).toHaveTextContent('0');
     });
 
     fireEvent.click(screen.getByTestId('reset'));

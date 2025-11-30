@@ -73,7 +73,7 @@ const SparkleField = () => {
 };
 
 // --- Main Component ---
-export const MagicBar: React.FC<MagicBarProps> = ({ 
+const MagicBarComponent: React.FC<MagicBarProps> = ({ 
   isLoading, 
   variations, 
   helpResult,
@@ -316,3 +316,5 @@ export const MagicBar: React.FC<MagicBarProps> = ({
     </div>
   );
 };
+
+export const MagicBar = React.memo(MagicBarComponent);

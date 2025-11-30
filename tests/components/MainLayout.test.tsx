@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, type Mock } from 'vitest';
+import { SidebarTab, MainView } from '@/types';
 
 // Mock all dependencies before importing MainLayout
 vi.mock('@/features/project', () => ({
@@ -76,6 +77,7 @@ import { MainLayout } from '@/features/layout/MainLayout';
 import { useProjectStore } from '@/features/project';
 import { useEngine } from '@/features/shared';
 import { useEditorState, useEditorActions } from '@/features/shared/context/EditorContext';
+import { useLayoutStore } from '@/features/layout/store/useLayoutStore';
 
 const mockUseProjectStore = useProjectStore as unknown as Mock;
 const mockUseEngine = useEngine as unknown as Mock;
@@ -127,6 +129,22 @@ describe('MainLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+
+    // Reset layout store so tests don't leak UI state (tabs, theme, etc.) between runs
+    useLayoutStore.setState((state) => ({
+      ...state,
+      activeTab: SidebarTab.ANALYSIS,
+      activeView: MainView.EDITOR,
+      isSidebarCollapsed: false,
+      isToolsCollapsed: false,
+      theme: 'light',
+      chatInitialMessage: undefined,
+      interviewTarget: null,
+      selectedGraphCharacter: null,
+      isExitZenHovered: false,
+      isHeaderHovered: false,
+      currentPersonaIndex: 0,
+    }));
   });
 
   it('renders UploadLayout when no project is selected', () => {
@@ -171,8 +189,8 @@ describe('MainLayout', () => {
     setupMocks(true);
     render(<MainLayout />);
     
-    // Find and click the board toggle button
-    const boardButton = screen.getByTitle('Story Board');
+    // Find and click the board toggle button by its accessible name
+    const boardButton = screen.getByLabelText('Switch to Story Board');
     fireEvent.click(boardButton);
     
     expect(screen.getByTestId('storyboard')).toBeInTheDocument();
@@ -182,7 +200,7 @@ describe('MainLayout', () => {
     setupMocks(true);
     render(<MainLayout />);
     
-    const zenButton = screen.getByTitle('Enter Zen Mode');
+    const zenButton = screen.getByLabelText('Enter Zen Mode');
     fireEvent.click(zenButton);
     
     expect(mockToggleZenMode).toHaveBeenCalled();
@@ -193,18 +211,18 @@ describe('MainLayout', () => {
     render(<MainLayout />);
     
     // Initially light mode
-    const darkModeButton = screen.getByTitle('Switch to Dark Mode');
+    const darkModeButton = screen.getByLabelText('Switch to Dark Mode');
     fireEvent.click(darkModeButton);
     
     // Should now show light mode option
-    expect(screen.getByTitle('Switch to Light Mode')).toBeInTheDocument();
+    expect(screen.getByLabelText('Switch to Light Mode')).toBeInTheDocument();
   });
 
   it('persists theme preference to localStorage', () => {
     setupMocks(true);
     render(<MainLayout />);
     
-    const darkModeButton = screen.getByTitle('Switch to Dark Mode');
+    const darkModeButton = screen.getByLabelText('Switch to Dark Mode');
     fireEvent.click(darkModeButton);
     
     expect(localStorage.getItem('quillai-theme')).toBe('dark');
@@ -213,8 +231,13 @@ describe('MainLayout', () => {
   it('loads theme preference from localStorage', () => {
     localStorage.setItem('quillai-theme', 'dark');
     setupMocks(true);
+    // Simulate a session that already has dark theme active
+    useLayoutStore.setState((state) => ({
+      ...state,
+      theme: 'dark',
+    }));
     render(<MainLayout />);
     
-    expect(screen.getByTitle('Switch to Light Mode')).toBeInTheDocument();
+    expect(screen.getByLabelText('Switch to Light Mode')).toBeInTheDocument();
   });
 });
