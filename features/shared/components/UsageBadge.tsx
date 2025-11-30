@@ -1,13 +1,15 @@
 import React from 'react';
 import { useUsage } from '../context/UsageContext';
+import { useSettingsStore } from '@/features/settings/store/useSettingsStore';
 
 export const UsageBadge: React.FC = () => {
   const { promptTokens, responseTokens, totalRequestCount, totalCost, sessionCost } = useUsage();
+  const { budgetThreshold } = useSettingsStore();
   
   if (totalRequestCount === 0) return null;
 
   const total = promptTokens + responseTokens;
-  const budgetExceeded = sessionCost > 1;
+  const budgetExceeded = sessionCost > budgetThreshold;
   const mainCost = sessionCost.toFixed(2);
   const detailedSessionCost = sessionCost.toFixed(4);
   const detailedLifetimeCost = totalCost.toFixed(4);
@@ -49,7 +51,7 @@ export const UsageBadge: React.FC = () => {
             <span className="font-mono">{totalRequestCount}</span>
          </div>
          <div className="flex justify-between mt-1 text-[var(--magic-200)]">
-            <span>Session cost:</span>
+            <span>Session cost (Limit: ${budgetThreshold.toFixed(2)}):</span>
             <span className="font-mono">${detailedSessionCost}</span>
          </div>
          <div className="flex justify-between mt-1 text-[var(--magic-200)]">

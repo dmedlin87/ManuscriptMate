@@ -20,6 +20,10 @@ interface SettingsState {
   // Autonomy mode
   autonomyMode: AutonomyMode;
   setAutonomyMode: (mode: AutonomyMode) => void;
+
+  // Budget Settings
+  budgetThreshold: number;
+  setBudgetThreshold: (threshold: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -28,6 +32,7 @@ export const useSettingsStore = create<SettingsState>()(
       critiqueIntensity: DEFAULT_CRITIQUE_INTENSITY,
       experienceLevel: DEFAULT_EXPERIENCE,
       autonomyMode: DEFAULT_AUTONOMY,
+      budgetThreshold: 1.0,
 
       setCritiqueIntensity: (intensity) => {
         set({ critiqueIntensity: intensity });
@@ -39,6 +44,10 @@ export const useSettingsStore = create<SettingsState>()(
 
       setAutonomyMode: (mode) => {
         set({ autonomyMode: mode });
+      },
+
+      setBudgetThreshold: (threshold) => {
+        set({ budgetThreshold: threshold });
       },
     }),
     {
