@@ -102,6 +102,26 @@ This is the chapter content.`;
       const result = parseManuscript(text);
       expect(result.some(c => c.title.includes('Journey'))).toBe(true);
     });
+    
+    it('extracts title from next line when all caps', () => {
+      const text = `Chapter 1
+ THE ARRIVAL
+ This is the chapter content.`;
+
+      const result = parseManuscript(text);
+      expect(result[0].title).toBe('Chapter 1: THE ARRIVAL');
+      expect(result[0].content).toContain('This is the chapter content.');
+    });
+
+    it('extracts title from next line when title case without period', () => {
+      const text = `Chapter 2
+ The Long Road
+ Content continues here.`;
+
+      const result = parseManuscript(text);
+      expect(result[0].title).toBe('Chapter 2: The Long Road');
+      expect(result[0].content).toContain('Content continues here.');
+    });
   });
 
   describe('artifact stripping', () => {
@@ -223,6 +243,34 @@ The story continues with many paragraphs...`;
       const result = parseManuscript(text);
       expect(result.length).toBeGreaterThanOrEqual(1);
       expect(result[0].content).toContain('Hello');
+    });
+  });
+
+  describe('whitespace-based chapter detection fallback', () => {
+    it('splits chapters using large whitespace and uppercase titles when no explicit headers', () => {
+      const text = [
+        'Introductory material before any chapter.',
+        '',
+        '',
+        '',
+        'FIRST CHAPTER',
+        'Content of the first chapter.',
+        '',
+        '',
+        '',
+        'SECOND CHAPTER',
+        'Content of the second chapter.',
+      ].join('\n');
+
+      const result = parseManuscript(text);
+
+      expect(result).toHaveLength(3);
+      expect(result[0].title).toBe('Prologue / Front Matter');
+      expect(result[0].content).toContain('Introductory material before any chapter.');
+      expect(result[1].title).toBe('FIRST CHAPTER');
+      expect(result[1].content).toContain('Content of the first chapter.');
+      expect(result[2].title).toBe('SECOND CHAPTER');
+      expect(result[2].content).toContain('Content of the second chapter.');
     });
   });
 });

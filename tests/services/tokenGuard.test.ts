@@ -68,15 +68,16 @@ describe('truncateToLimit', () => {
 
   it('truncates at paragraph boundary when possible', () => {
     // TTS model has 8k limit, with 4k reserve = 4k available = 16k chars
-    const paragraph1 = 'First paragraph. '.repeat(500); // ~8500 chars
-    const paragraph2 = 'Second paragraph. '.repeat(500);
-    const text = `${paragraph1}\n\n${paragraph2}`;
-    
+    const prefix = 'a'.repeat(15_000); // 93.75% of 16k
+    const suffix = 'b'.repeat(2_000);
+    const text = `${prefix}\n\n${suffix}`;
+
     const result = truncateToLimit(text, 'gemini-2.5-flash-preview-tts');
-    
+
     expect(result.truncated).toBe(true);
     expect(result.removedChars).toBeGreaterThan(0);
     // Should break at paragraph if within 80% of limit
+    expect(result.text.length).toBe(prefix.length);
   });
 
   it('truncates at sentence boundary as fallback', () => {
@@ -106,6 +107,18 @@ describe('prepareAnalysisText', () => {
     expect(result.text.length).toBeLessThan(text.length);
     expect(result.warning).toBeDefined();
     expect(result.warning).toContain('truncated');
+  });
+
+  it('truncates at paragraph boundary near analysis limit', () => {
+    // ApiDefaults.maxAnalysisLength is 3,000,000 characters
+    const prefix = 'a'.repeat(2_500_000); // ~83% of limit
+    const suffix = 'b'.repeat(800_000);
+    const text = `${prefix}\n\n${suffix}`;
+
+    const result = prepareAnalysisText(text);
+
+    expect(result.text.length).toBe(prefix.length);
+    expect(result.warning).toBeDefined();
   });
 
   it('warning includes removed character count', () => {

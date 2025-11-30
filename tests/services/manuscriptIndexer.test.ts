@@ -268,6 +268,19 @@ describe('mergeIntoIndex', () => {
     expect(updatedIndex.characters['Alice'].attributes.hair_color).toHaveLength(1);
     expect(updatedIndex.characters['Alice'].attributes.age).toHaveLength(1);
   });
+
+  it('initializes characters and lastUpdated when missing on existing index', () => {
+    const existingIndex = {} as ManuscriptIndex;
+    const extraction = {
+      characters: [{ name: 'Alice', attributes: { eye_color: 'blue' }, position: 42 }]
+    };
+
+    const { updatedIndex, contradictions } = mergeIntoIndex(existingIndex, extraction, 'chapter-x');
+
+    expect(contradictions).toHaveLength(0);
+    expect(updatedIndex.characters['Alice']).toBeDefined();
+    expect(updatedIndex.lastUpdated['chapter-x']).toBeDefined();
+  });
 });
 
 describe('extractEntities', () => {
@@ -310,6 +323,15 @@ describe('extractEntities', () => {
     });
 
     const text = 'This is a long enough text to trigger the extraction logic. It causes an error.';
+    const result = await extractEntities(text, 'chapter-1');
+
+    expect(result).toEqual({ characters: [] });
+  });
+
+  it('falls back to empty characters when response has no text field', async () => {
+    mockGenerateContent.mockResolvedValue({});
+
+    const text = 'This is a long enough text to trigger the extraction logic even without text.';
     const result = await extractEntities(text, 'chapter-1');
 
     expect(result).toEqual({ characters: [] });

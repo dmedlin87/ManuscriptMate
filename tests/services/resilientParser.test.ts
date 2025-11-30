@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   cleanJsonOutput,
   safeParseJson,
@@ -96,6 +96,17 @@ describe('safeParseJson', () => {
     expect(result.error).toContain('Failed to parse JSON');
   });
 
+  it('extracts JSON object using boundary search when sanitization fails', () => {
+    const fallback = { default: true };
+    const text = 'Preamble that is not removed {"key": "value"} trailing notes that are not stripped';
+
+    const result = safeParseJson(text, fallback);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ key: 'value' });
+    expect(result.sanitized).toBe(true);
+  });
+
   it('parses arrays correctly', () => {
     const result = safeParseJson('[1, 2, 3]', []);
     expect(result.success).toBe(true);
@@ -106,6 +117,17 @@ describe('safeParseJson', () => {
     const result = safeParseJson('The items are: [1, 2, 3] as requested.', []);
     expect(result.success).toBe(true);
     expect(result.data).toEqual([1, 2, 3]);
+  });
+
+  it('returns fallback when array extraction finds invalid JSON', () => {
+    const fallback = { default: true };
+    const text = 'Items: [not, valid, json] end of response';
+
+    const result = safeParseJson(text, fallback);
+
+    expect(result.success).toBe(false);
+    expect(result.data).toEqual(fallback);
+    expect(result.error).toContain('Failed to parse JSON after sanitization');
   });
 
   it('handles complex nested structures', () => {
@@ -119,6 +141,35 @@ describe('safeParseJson', () => {
     const result = safeParseJson(JSON.stringify(complex), {});
     expect(result.success).toBe(true);
     expect(result.data).toEqual(complex);
+  });
+
+  it('falls back when parsing extracted JSON fails after extraction', () => {
+    const fallback = { default: true };
+    const originalParse = JSON.parse;
+
+    let callCount = 0;
+    (JSON as any).parse = vi.fn((input: string) => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw new SyntaxError('direct parse failed');
+      }
+      if (callCount === 2) {
+        return { ok: true };
+      }
+      if (callCount === 3) {
+        throw new SyntaxError('parse after extraction failed');
+      }
+      return originalParse(input as any);
+    });
+
+    try {
+      const result = safeParseJson('{"ok": true}', fallback);
+      expect(result.success).toBe(false);
+      expect(result.data).toEqual(fallback);
+      expect(result.error).toContain('Failed to parse JSON after sanitization');
+    } finally {
+      (JSON as any).parse = originalParse;
+    }
   });
 });
 

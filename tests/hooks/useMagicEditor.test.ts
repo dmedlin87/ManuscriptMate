@@ -134,4 +134,176 @@ describe('useMagicEditor', () => {
 
     expect(trackUsage).toHaveBeenCalledWith({ promptTokenCount: 3, totalTokenCount: 5 });
   });
+
+  it('does not trigger help for empty or whitespace-only selection', async () => {
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: { ...baseSelection, text: '   ' },
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      await result.current.actions.handleHelp('Explain');
+    });
+
+    expect(getContextualHelp).not.toHaveBeenCalled();
+    expect(result.current.state.isMagicLoading).toBe(false);
+  });
+
+  it('handles help request failure gracefully', async () => {
+    vi.mocked(getContextualHelp).mockRejectedValue(new Error('Help API Error'));
+
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      await result.current.actions.handleHelp('Explain');
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.magicError).toBe('Help API Error');
+      expect(result.current.state.isMagicLoading).toBe(false);
+      expect(result.current.state.magicHelpResult).toBeNull();
+    });
+  });
+
+  it('handles Tone Tuner mode formatting', async () => {
+    vi.mocked(rewriteText).mockResolvedValue({
+      result: ['Tone Variation'],
+      usage: { promptTokenCount: 1, totalTokenCount: 1 },
+    });
+
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      await result.current.actions.handleRewrite('Tone Tuner', 'Sarcastic');
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.activeMagicMode).toBe('Tone: Sarcastic');
+    });
+  });
+
+  it('does not trigger rewrite for empty or whitespace-only selection', async () => {
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: { ...baseSelection, text: '   ' },
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      await result.current.actions.handleRewrite('Rewrite');
+    });
+
+    expect(rewriteText).not.toHaveBeenCalled();
+    expect(result.current.state.isMagicLoading).toBe(false);
+  });
+
+  it('handles rewrite failure gracefully', async () => {
+    vi.mocked(rewriteText).mockRejectedValue(new Error('API Error'));
+
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      await result.current.actions.handleRewrite('Rewrite');
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.magicError).toBe('API Error');
+      expect(result.current.state.isMagicLoading).toBe(false);
+      expect(result.current.state.magicVariations).toEqual([]);
+    });
+  });
+
+  it('aborts pending rewrite operation when starting new one', async () => {
+    // Mock a slow response
+    vi.mocked(rewriteText).mockImplementation(async (text, mode, tone, settings, signal) => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (signal?.aborted) return { result: [], usage: { promptTokenCount: 0, totalTokenCount: 0 } };
+      return { result: ['Variation'], usage: { promptTokenCount: 1, totalTokenCount: 1 } };
+    });
+
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    await act(async () => {
+      result.current.actions.handleRewrite('First');
+    });
+    
+    // Immediately trigger second rewrite
+    await act(async () => {
+      result.current.actions.handleRewrite('Second');
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.activeMagicMode).toBe('Second');
+    });
+
+    // Only the second call should complete successfully
+    expect(rewriteText).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits context replacement when no variations exist', async () => {
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    // Manually populate the captured selection via handleRewrite but assume empty result?
+    // Or just mock handleRewrite to return empty variations.
+    vi.mocked(rewriteText).mockResolvedValue({ result: [], usage: { promptTokenCount: 0, totalTokenCount: 0 } });
+
+    await act(async () => {
+      await result.current.actions.handleRewrite('Fix Grammar');
+    });
+
+    act(() => {
+      result.current.actions.applyVariation('Fixed content');
+    });
+
+    expect(commit).toHaveBeenCalledWith(
+      'Fixed content content', // "Test" replaced by "Fixed content" in "Test content" -> "Fixed content content"
+      'Magic Edit: Context Replacement',
+      'User'
+    );
+  });
+
+  it('prevents applyVariation with no captured selection', () => {
+    const { result } = renderHook(() => useMagicEditor({
+      selectionRange: baseSelection,
+      clearSelection,
+      getCurrentText,
+      commit,
+    }));
+
+    act(() => {
+      // Called without handleRewrite first
+      result.current.actions.applyVariation('New Text');
+    });
+
+    expect(result.current.state.magicError).toBe('No selection to apply to');
+    expect(commit).not.toHaveBeenCalled();
+  });
 });

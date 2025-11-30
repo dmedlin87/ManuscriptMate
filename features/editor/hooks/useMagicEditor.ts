@@ -56,7 +56,7 @@ export function useMagicEditor({
   }, []);
 
   const handleRewrite = useCallback(async (mode: string, tone?: string) => {
-    if (!selectionRange) return;
+    if (!selectionRange || !selectionRange.text.trim()) return;
     
     abortMagicOperation();
     magicAbortRef.current = new AbortController();
@@ -95,7 +95,7 @@ export function useMagicEditor({
   }, [selectionRange, projectSetting, abortMagicOperation, resetMagicState, trackUsage]);
 
   const handleHelp = useCallback(async (type: 'Explain' | 'Thesaurus') => {
-    if (!selectionRange) return;
+    if (!selectionRange || !selectionRange.text.trim()) return;
     
     abortMagicOperation();
     magicAbortRef.current = new AbortController();
