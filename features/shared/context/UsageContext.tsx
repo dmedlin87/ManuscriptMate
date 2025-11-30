@@ -94,7 +94,9 @@ export const UsageProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const costIncrement =
       (promptDelta / 1_000_000) * pricing.inputPrice +
       (responseDelta / 1_000_000) * pricing.outputPrice;
-    setTotalCost(prev => prev + costIncrement);
+
+    // Round to 4 decimal places to limit floating-point drift over many updates
+    setTotalCost(prev => Math.round((prev + costIncrement) * 10_000) / 10_000);
   }, []);
 
   const sessionCost = Math.max(0, totalCost - sessionBaselineCost);
