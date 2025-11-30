@@ -7,10 +7,11 @@
  * This is the NEW way to interact with the agent - replaces manual context passing.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useReducer } from 'react';
 import { Chat } from '@google/genai';
 import { createAgentSession } from '@/services/gemini/agent';
 import { ALL_AGENT_TOOLS, VOICE_SAFE_TOOLS } from '@/services/gemini/agentTools';
+import { executeAppBrainToolCall } from '@/services/gemini/toolExecutor';
 import { useAppBrain } from '@/features/shared';
 import { ChatMessage } from '@/types';
 import { Persona, DEFAULT_PERSONAS } from '@/types/personas';
@@ -22,6 +23,27 @@ import { emitToolExecuted } from '@/services/appBrain';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AgentMode = 'text' | 'voice';
+
+// Internal agent state for reducer (discriminated union)
+type BaseAgentState =
+  | { status: 'idle'; error?: never }
+  | { status: 'thinking'; currentRequest: string }
+  | { status: 'executing'; tool: string }
+  | { status: 'error'; error: string };
+
+type AgentState = BaseAgentState & {
+  isReady: boolean;
+  lastToolCall?: { name: string; success: boolean };
+};
+
+type AgentAction =
+  | { type: 'SESSION_READY' }
+  | { type: 'START_THINKING'; request: string }
+  | { type: 'START_EXECUTION'; tool: string }
+  | { type: 'TOOL_COMPLETE'; tool: string; success: boolean; error?: string }
+  | { type: 'FINISH' }
+  | { type: 'ERROR'; error: string }
+  | { type: 'ABORT' };
 
 export interface AgentOrchestratorState {
   status: 'idle' | 'thinking' | 'executing' | 'speaking' | 'error';
@@ -71,12 +93,79 @@ export function useAgentOrchestrator(
   
   // Local state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [state, setState] = useState<AgentOrchestratorState>({ status: 'idle' });
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [agentState, dispatch] = useReducer<
+    (state: AgentState, action: AgentAction) => AgentState
+  >(
+    (state, action) => {
+      switch (action.type) {
+        case 'SESSION_READY':
+          return { ...state, isReady: true };
+        case 'START_THINKING':
+          return {
+            status: 'thinking',
+            currentRequest: action.request,
+            isReady: state.isReady,
+            lastToolCall: state.lastToolCall,
+          };
+        case 'START_EXECUTION':
+          return {
+            status: 'executing',
+            tool: action.tool,
+            isReady: state.isReady,
+            lastToolCall: { name: action.tool, success: false },
+          };
+        case 'TOOL_COMPLETE':
+          if (action.success) {
+            // After a successful tool call, return to thinking for follow-up model response
+            const previousRequest =
+              state.status === 'thinking' ? state.currentRequest : '';
+            return {
+              status: 'thinking',
+              currentRequest: previousRequest,
+              isReady: state.isReady,
+              lastToolCall: { name: action.tool, success: true },
+            };
+          }
+          return {
+            status: 'error',
+            error: action.error ?? 'Unknown error',
+            isReady: state.isReady,
+            lastToolCall: { name: action.tool, success: false },
+          };
+        case 'FINISH':
+          return {
+            status: 'idle',
+            isReady: state.isReady,
+            lastToolCall: state.lastToolCall,
+          };
+        case 'ERROR':
+          return {
+            status: 'error',
+            error: action.error,
+            isReady: state.isReady,
+            lastToolCall: state.lastToolCall,
+          };
+        case 'ABORT':
+          return {
+            status: 'idle',
+            isReady: state.isReady,
+            lastToolCall: state.lastToolCall,
+          };
+        default:
+          return state;
+      }
+    },
+    {
+      status: 'idle',
+      isReady: false,
+    }
+  );
   const [currentPersona, setCurrentPersona] = useState<Persona>(
     initialPersona || DEFAULT_PERSONAS[0]
   );
-  const [isReady, setIsReady] = useState(false);
+  const isReady = agentState.isReady;
+  const isProcessing =
+    agentState.status === 'thinking' || agentState.status === 'executing';
   
   // Refs
   const chatRef = useRef<Chat | null>(null);
@@ -116,7 +205,7 @@ export function useAgentOrchestrator(
     chatRef.current?.sendMessage({
       message: `Session initialized. Project: "${manuscript.projectTitle}". Chapters: ${manuscript.chapters.length}. Active: "${manuscript.chapters.find(c => c.id === manuscript.activeChapterId)?.title}". I am ${currentPersona.name}, ready to assist.`
     }).then(() => {
-      setIsReady(true);
+      dispatch({ type: 'SESSION_READY' });
     }).catch(console.error);
   }, [brain.state, currentPersona, critiqueIntensity, experienceLevel, autonomyMode]);
 
@@ -148,124 +237,24 @@ export function useAgentOrchestrator(
     toolName: string,
     args: Record<string, unknown>
   ): Promise<string> => {
-    setState(s => ({ ...s, status: 'executing', lastToolCall: { name: toolName, success: false } }));
-    
-    try {
-      let result: string;
-      
-      // Route to appropriate action
-      switch (toolName) {
-        // Navigation
-        case 'navigate_to_text':
-          result = await brain.actions.navigateToText({
-            query: args.query as string,
-            searchType: args.searchType as any,
-            character: args.character as string,
-            chapter: args.chapter as string,
-          });
-          break;
-        case 'jump_to_chapter':
-          result = await brain.actions.jumpToChapter(args.identifier as string);
-          break;
-        case 'jump_to_scene':
-          result = await brain.actions.jumpToScene(
-            args.sceneType as string,
-            args.direction as 'next' | 'previous'
-          );
-          break;
-        case 'scroll_to_position':
-          brain.actions.scrollToPosition(args.position as number);
-          result = `Scrolled to position ${args.position}`;
-          break;
-          
-        // Editing
-        case 'update_manuscript':
-          result = await brain.actions.updateManuscript({
-            searchText: args.search_text as string,
-            replacementText: args.replacement_text as string,
-            description: args.description as string,
-          });
-          break;
-        case 'append_to_manuscript':
-          result = await brain.actions.appendText(
-            args.text_to_add as string,
-            args.description as string
-          );
-          break;
-        case 'insert_at_cursor':
-          result = await brain.actions.appendText(args.text as string, args.description as string);
-          break;
-        case 'undo_last_change':
-          result = await brain.actions.undo();
-          break;
-        case 'redo_last_change':
-          result = await brain.actions.redo();
-          break;
-          
-        // Analysis
-        case 'get_critique_for_selection':
-          result = await brain.actions.getCritiqueForSelection(args.focus as string);
-          break;
-        case 'run_analysis':
-          result = await brain.actions.runAnalysis(args.section as string);
-          break;
-          
-        // UI Control
-        case 'switch_panel':
-          brain.actions.switchPanel(args.panel as string);
-          result = `Switched to ${args.panel} panel`;
-          break;
-        case 'toggle_zen_mode':
-          brain.actions.toggleZenMode();
-          result = 'Toggled Zen mode';
-          break;
-        case 'highlight_text':
-          brain.actions.highlightText(
-            args.start as number,
-            args.end as number,
-            args.style as string
-          );
-          result = `Highlighted text at ${args.start}-${args.end}`;
-          break;
-          
-        // Knowledge
-        case 'query_lore':
-          result = await brain.actions.queryLore(args.query as string);
-          break;
-        case 'get_character_info':
-          result = await brain.actions.getCharacterInfo(args.name as string);
-          break;
-        case 'get_timeline_context':
-          result = await brain.actions.getTimelineContext(args.range as any);
-          break;
-          
-        // Generation
-        case 'rewrite_selection':
-          result = await brain.actions.rewriteSelection({
-            mode: args.mode as any,
-            targetTone: args.target_tone as string,
-          });
-          break;
-          
-        default:
-          result = `Unknown tool: ${toolName}`;
-      }
-      
+    dispatch({ type: 'START_EXECUTION', tool: toolName });
+
+    const result = await executeAppBrainToolCall(toolName, args, brain.actions);
+
+    if (result.success) {
       emitToolExecuted(toolName, true);
-      setState(s => ({ ...s, lastToolCall: { name: toolName, success: true } }));
-      return result;
-      
-    } catch (e) {
-      const error = e instanceof Error ? e.message : 'Unknown error';
+      dispatch({ type: 'TOOL_COMPLETE', tool: toolName, success: true });
+    } else {
       emitToolExecuted(toolName, false);
-      setState(s => ({ 
-        ...s, 
-        status: 'error', 
-        lastError: error,
-        lastToolCall: { name: toolName, success: false }
-      }));
-      return `Error executing ${toolName}: ${error}`;
+      dispatch({
+        type: 'TOOL_COMPLETE',
+        tool: toolName,
+        success: false,
+        error: result.error ?? 'Unknown error',
+      });
     }
+
+    return result.message;
   }, [brain.actions]);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -287,8 +276,7 @@ export function useAgentOrchestrator(
       timestamp: new Date()
     };
     setMessages(prev => [...prev, userMsg]);
-    setIsProcessing(true);
-    setState({ status: 'thinking' });
+    dispatch({ type: 'START_THINKING', request: messageText });
 
     try {
       // Build context-aware prompt using AppBrain
@@ -335,7 +323,7 @@ ${messageText}
 
         if (signal.aborted) return;
         
-        setState({ status: 'thinking' });
+        dispatch({ type: 'START_THINKING', request: messageText });
         result = await chatRef.current.sendMessage({
           message: functionResponses.map(resp => ({ functionResponse: resp }))
         });
@@ -347,14 +335,14 @@ ${messageText}
         text: result.text || 'Done.',
         timestamp: new Date()
       }]);
-      setState({ status: 'idle' });
+      dispatch({ type: 'FINISH' });
 
     } catch (e) {
       if (signal.aborted) return;
       
       console.error('[AgentOrchestrator] Error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-      setState({ status: 'error', lastError: errorMessage });
+      dispatch({ type: 'ERROR', error: errorMessage });
       
       setMessages(prev => [...prev, {
         role: 'model',
@@ -362,9 +350,7 @@ ${messageText}
         timestamp: new Date()
       }]);
     } finally {
-      if (!signal.aborted) {
-        setIsProcessing(false);
-      }
+      // isProcessing is derived from reducer state; no manual reset here
     }
   }, [brain.state, brain.context, executeToolCall]);
 
@@ -374,8 +360,7 @@ ${messageText}
 
   const abort = useCallback(() => {
     abortControllerRef.current?.abort();
-    setIsProcessing(false);
-    setState({ status: 'idle' });
+    dispatch({ type: 'ABORT' });
   }, []);
 
   const reset = useCallback(() => {
@@ -399,7 +384,11 @@ ${messageText}
   return {
     isReady,
     isProcessing,
-    state,
+    state: {
+      status: agentState.status,
+      lastError: agentState.status === 'error' ? agentState.error : undefined,
+      lastToolCall: agentState.lastToolCall,
+    },
     messages,
     currentPersona,
     sendMessage,

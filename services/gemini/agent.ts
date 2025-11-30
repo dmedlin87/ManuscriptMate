@@ -288,6 +288,145 @@ const buildIntelligenceContext = (hud: ManuscriptHUD): string => {
   return ctx;
 };
 
+class PromptBuilder {
+  private readonly template: string;
+  private intensityModifier = "";
+  private loreContext = "";
+  private analysisContext = "";
+  private memoryContext = "";
+  private fullManuscript = "No manuscript content loaded.";
+  private experienceModifier = "";
+  private autonomyModifier = "";
+  private extraBlocks: string[] = [];
+
+  constructor(template: string) {
+    this.template = template;
+  }
+
+  setIntensity(modifier: string): this {
+    this.intensityModifier = modifier;
+    return this;
+  }
+
+  addLore(lore?: Lore): this {
+    if (!lore) return this;
+
+    const chars = lore.characters
+      .map(c => `
+    - Name: ${c.name}
+    - Bio: ${c.bio}
+    - Arc Summary: ${c.arc}
+    - Key Development Suggestion: ${c.developmentSuggestion}
+    - Known Inconsistencies: ${c.inconsistencies.map(i => i.issue).join(', ') || "None"}
+    `)
+      .join("\n");
+
+    const rules = lore.worldRules.map(r => `- ${r}`).join("\n");
+
+    this.loreContext = `
+    [LORE BIBLE & CONTEXTUAL MEMORY]
+    Do not contradict these established facts about the story.
+    
+    CHARACTERS:
+    ${chars}
+    
+    WORLD RULES / SETTING DETAILS:
+    ${rules}
+    `;
+
+    return this;
+  }
+
+  addAnalysis(analysis?: AnalysisResult, voiceFingerprint?: VoiceFingerprint, deepAnalysis?: boolean): this {
+    if (!analysis) return this;
+
+    let analysisContext = `
+    [DEEP ANALYSIS INSIGHTS]
+    Use these insights to answer questions about plot holes, pacing, and character arcs.
+    
+    SUMMARY: ${analysis.summary}
+    STRENGTHS: ${analysis.strengths.join(', ')}
+    WEAKNESSES: ${analysis.weaknesses.join(', ')}
+    
+    PLOT ISSUES:
+    ${analysis.plotIssues.map(p => `- ${p.issue} (Fix: ${p.suggestion})`).join('\n')}
+    
+    CHARACTERS (FROM ANALYSIS):
+    ${analysis.characters.map(c => `- ${c.name}: ${c.arc} (Suggestion: ${c.developmentSuggestion})`).join('\n')}
+    `;
+
+    if (deepAnalysis && voiceFingerprint && Object.keys(voiceFingerprint.profiles).length > 0) {
+      const profiles = Object.values(voiceFingerprint.profiles);
+      let voiceContext = `
+    [DEEP ANALYSIS: VOICE FINGERPRINTS]
+    `;
+      for (const profile of profiles.slice(0, 5)) {
+        const latinatePct = Math.round(profile.metrics.latinateRatio * 100);
+        const contractionPct = Math.round(profile.metrics.contractionRatio * 100);
+        voiceContext += `• ${profile.speakerName}: ${profile.impression} (${latinatePct}% Formal, ${contractionPct}% Casual).\n`;
+      }
+      voiceContext += 'Use these metrics to ensure character voice consistency.\n';
+
+      analysisContext += `\n${voiceContext}`;
+    }
+
+    this.analysisContext = analysisContext;
+    return this;
+  }
+
+  addContext(options: {
+    fullManuscriptContext?: string;
+    memoryContext?: string;
+    defaultMemoryContext: string;
+    experienceModifier: string;
+    autonomyModifier: string;
+    intelligenceHUD?: ManuscriptHUD;
+  }): this {
+    const {
+      fullManuscriptContext,
+      memoryContext,
+      defaultMemoryContext,
+      experienceModifier,
+      autonomyModifier,
+      intelligenceHUD,
+    } = options;
+
+    if (fullManuscriptContext) {
+      this.fullManuscript = fullManuscriptContext;
+    }
+
+    this.memoryContext = memoryContext || defaultMemoryContext;
+    this.experienceModifier = experienceModifier;
+    this.autonomyModifier = autonomyModifier;
+
+    if (intelligenceHUD) {
+      const intelligenceContext = buildIntelligenceContext(intelligenceHUD);
+      this.extraBlocks.push(intelligenceContext);
+    }
+
+    return this;
+  }
+
+  build(): string {
+    let systemInstruction = this.template
+      .replace('{{INTENSITY_MODIFIER}}', this.intensityModifier)
+      .replace('{{LORE_CONTEXT}}', this.loreContext)
+      .replace('{{ANALYSIS_CONTEXT}}', this.analysisContext)
+      .replace('{{MEMORY_CONTEXT}}', this.memoryContext)
+      .replace('{{FULL_MANUSCRIPT}}', this.fullManuscript);
+
+    if (this.experienceModifier || this.autonomyModifier) {
+      systemInstruction += `\n\n${this.experienceModifier}\n\n${this.autonomyModifier}`;
+    }
+
+    if (this.extraBlocks.length > 0) {
+      systemInstruction += `\n\n${this.extraBlocks.join('\n\n')}`;
+    }
+
+    return systemInstruction;
+  }
+}
+
 export interface CreateAgentSessionOptions {
   lore?: Lore;
   analysis?: AnalysisResult;
@@ -321,89 +460,26 @@ export const createAgentSession = (options: CreateAgentSessionOptions = {}) => {
     voiceFingerprint,
     deepAnalysis,
   } = options;
-  let loreContext = "";
-  if (lore) {
-    const chars = lore.characters.map(c => `
-    - Name: ${c.name}
-    - Bio: ${c.bio}
-    - Arc Summary: ${c.arc}
-    - Key Development Suggestion: ${c.developmentSuggestion}
-    - Known Inconsistencies: ${c.inconsistencies.map(i => i.issue).join(', ') || "None"}
-    `).join('\n');
-    
-    const rules = lore.worldRules.map(r => `- ${r}`).join('\n');
-    
-    loreContext = `
-    [LORE BIBLE & CONTEXTUAL MEMORY]
-    Do not contradict these established facts about the story.
-    
-    CHARACTERS:
-    ${chars}
-    
-    WORLD RULES / SETTING DETAILS:
-    ${rules}
-    `;
-  }
-
-  let analysisContext = "";
-  if (analysis) {
-    analysisContext = `
-    [DEEP ANALYSIS INSIGHTS]
-    Use these insights to answer questions about plot holes, pacing, and character arcs.
-    
-    SUMMARY: ${analysis.summary}
-    STRENGTHS: ${analysis.strengths.join(', ')}
-    WEAKNESSES: ${analysis.weaknesses.join(', ')}
-    
-    PLOT ISSUES:
-    ${analysis.plotIssues.map(p => `- ${p.issue} (Fix: ${p.suggestion})`).join('\n')}
-    
-    CHARACTERS (FROM ANALYSIS):
-    ${analysis.characters.map(c => `- ${c.name}: ${c.arc} (Suggestion: ${c.developmentSuggestion})`).join('\n')}
-    `;
-  }
-
-  // Optional deep voice analytics block
-  if (deepAnalysis && voiceFingerprint && Object.keys(voiceFingerprint.profiles).length > 0) {
-    const profiles = Object.values(voiceFingerprint.profiles);
-    let voiceContext = `
-    [DEEP ANALYSIS: VOICE FINGERPRINTS]
-    `;
-    for (const profile of profiles.slice(0, 5)) {
-      const latinatePct = Math.round(profile.metrics.latinateRatio * 100);
-      const contractionPct = Math.round(profile.metrics.contractionRatio * 100);
-      voiceContext += `• ${profile.speakerName}: ${profile.impression} (${latinatePct}% Formal, ${contractionPct}% Casual).\n`;
-    }
-    voiceContext += 'Use these metrics to ensure character voice consistency.\n';
-
-    analysisContext += `\n${voiceContext}`;
-  }
 
   const intensityModifier = getIntensityModifier(intensity);
   const experienceModifier = getExperienceModifier(experience);
   const autonomyModifier = getAutonomyModifier(autonomy);
 
-  let systemInstruction = AGENT_SYSTEM_INSTRUCTION
-    .replace('{{INTENSITY_MODIFIER}}', intensityModifier)
-    .replace('{{LORE_CONTEXT}}', loreContext)
-    .replace('{{ANALYSIS_CONTEXT}}', analysisContext)
-    .replace('{{FULL_MANUSCRIPT}}', fullManuscriptContext || "No manuscript content loaded.");
+  const builder = new PromptBuilder(AGENT_SYSTEM_INSTRUCTION)
+    .setIntensity(intensityModifier)
+    .addLore(lore)
+    .addAnalysis(analysis, voiceFingerprint, deepAnalysis)
+    .addContext({
+      fullManuscriptContext,
+      memoryContext,
+      defaultMemoryContext:
+        '[AGENT MEMORY]\n(No memories loaded yet. Use memory tools to start building your knowledge base.)',
+      experienceModifier,
+      autonomyModifier,
+      intelligenceHUD,
+    });
 
-  // Append experience and autonomy modifiers
-  systemInstruction += `\n\n${experienceModifier}\n\n${autonomyModifier}`;
-
-  // Inject memory context if available
-  if (memoryContext) {
-    systemInstruction = systemInstruction.replace('{{MEMORY_CONTEXT}}', memoryContext);
-  } else {
-    systemInstruction = systemInstruction.replace('{{MEMORY_CONTEXT}}', '[AGENT MEMORY]\n(No memories loaded yet. Use memory tools to start building your knowledge base.)');
-  }
-
-  // Inject intelligence HUD context if available
-  if (intelligenceHUD) {
-    const intelligenceContext = buildIntelligenceContext(intelligenceHUD);
-    systemInstruction += `\n\n${intelligenceContext}`;
-  }
+  let systemInstruction = builder.build();
 
   // Apply persona instructions if provided
   if (interviewTarget) {
