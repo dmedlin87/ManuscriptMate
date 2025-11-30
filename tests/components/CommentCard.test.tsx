@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { CommentCard } from '@/features/editor/components/CommentCard';
@@ -100,5 +100,102 @@ describe('CommentCard', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('repositions when near viewport edges', async () => {
+    const onClose = vi.fn();
+    const onFixWithAgent = vi.fn();
+    const onDismiss = vi.fn();
+
+    const getBoundingClientRectMock = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({
+        width: 200,
+        height: 200,
+        top: 0,
+        left: 0,
+        bottom: 200,
+        right: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      } as DOMRect);
+
+    const innerWidthSpy = vi
+      .spyOn(window, 'innerWidth', 'get')
+      .mockReturnValue(300);
+    const innerHeightSpy = vi
+      .spyOn(window, 'innerHeight', 'get')
+      .mockReturnValue(400);
+
+    const { container } = render(
+      <CommentCard
+        comment={baseComment}
+        position={{ top: 300, left: 200 }}
+        onClose={onClose}
+        onFixWithAgent={onFixWithAgent}
+        onDismiss={onDismiss}
+      />
+    );
+
+    const card = container.firstChild as HTMLDivElement;
+
+    try {
+      await waitFor(() => {
+        expect(card.style.top).toBe('70px');
+        expect(card.style.left).toBe('80px');
+      });
+    } finally {
+      getBoundingClientRectMock.mockRestore();
+      innerWidthSpy.mockRestore();
+      innerHeightSpy.mockRestore();
+    }
+  });
+
+  it('clamps left position when too close to the edge', async () => {
+    const onClose = vi.fn();
+
+    const getBoundingClientRectMock = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({
+        width: 180,
+        height: 100,
+        top: 0,
+        left: 0,
+        bottom: 100,
+        right: 180,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      } as DOMRect);
+
+    const innerWidthSpy = vi
+      .spyOn(window, 'innerWidth', 'get')
+      .mockReturnValue(200);
+    const innerHeightSpy = vi
+      .spyOn(window, 'innerHeight', 'get')
+      .mockReturnValue(400);
+
+    const { container } = render(
+      <CommentCard
+        comment={baseComment}
+        position={{ top: 10, left: 0 }}
+        onClose={onClose}
+        onFixWithAgent={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    );
+
+    const card = container.firstChild as HTMLDivElement;
+
+    try {
+      await waitFor(() => {
+        expect(card.style.left).toBe('20px');
+      });
+    } finally {
+      getBoundingClientRectMock.mockRestore();
+      innerWidthSpy.mockRestore();
+      innerHeightSpy.mockRestore();
+    }
   });
 });

@@ -28,6 +28,15 @@ export { useQuillAIEngine, type PendingDiff } from './hooks/useDraftSmithEngine'
 export { useManuscriptIndexer } from './hooks/useManuscriptIndexer';
 export { usePlotSuggestions } from './hooks/usePlotSuggestions';
 export { useViewportCollision } from './hooks/useViewportCollision';
+export { 
+  useManuscriptIntelligence, 
+  useCurrentScene, 
+  useStyleAlerts, 
+  useOpenPromises,
+  useHighRiskSections,
+  type UseManuscriptIntelligenceOptions,
+  type UseManuscriptIntelligenceReturn,
+} from './hooks/useManuscriptIntelligence';
 
 // Utils
 export { findQuoteRange, enrichAnalysisWithPositions, extractClickableIssues } from './utils/textLocator';

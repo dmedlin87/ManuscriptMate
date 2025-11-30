@@ -4,6 +4,7 @@ export interface CharacterProfile {
   name: string;
   bio: string;
   arc: string;
+  voiceTraits?: string;
   arcStages: Array<{
     stage: string;
     description: string;
@@ -75,6 +76,7 @@ const CharacterProfileSchema = z.object({
   name: z.string().default(''),
   bio: z.string().default(''),
   arc: z.string().default(''),
+  voiceTraits: z.string().default(''),
   arcStages: z.array(z.object({
     stage: z.string(),
     description: z.string(),

@@ -50,6 +50,39 @@ describe('PersonaSelector', () => {
     expect(screen.queryByText(second.name)).not.toBeInTheDocument();
   });
 
+  it('closes compact dropdown on outside click', () => {
+    const onSelectPersona = vi.fn();
+    const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
+
+    try {
+      render(
+        <PersonaSelector
+          currentPersona={first}
+          onSelectPersona={onSelectPersona}
+          compact
+        />
+      );
+
+      const toggle = screen.getByTitle(`Current: ${first.name}`);
+      fireEvent.click(toggle);
+
+      expect(screen.getByText(second.name)).toBeInTheDocument();
+
+      // Simulate a click outside of the dropdown
+      fireEvent.click(document.body);
+
+      expect(screen.queryByText(second.name)).not.toBeInTheDocument();
+
+      // Ensure click-outside listener was registered
+      expect(addEventListenerSpy).toHaveBeenCalledWith(
+        'mousedown',
+        expect.any(Function),
+      );
+    } finally {
+      addEventListenerSpy.mockRestore();
+    }
+  });
+
   it('renders full view cards and calls onSelectPersona', () => {
     const onSelectPersona = vi.fn();
 

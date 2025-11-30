@@ -793,6 +793,10 @@ describe('ImportWizard', () => {
         />
       );
 
+      // Select the second duplicate chapter, which has a lower quality score
+      const chapterRows = screen.getAllByText('Chapter 1');
+      fireEvent.click(chapterRows[1]);
+
       expect(screen.getByText('Needs Work')).toBeInTheDocument();
     });
 
@@ -809,6 +813,10 @@ describe('ImportWizard', () => {
           onCancel={mockOnCancel}
         />
       );
+
+      // Select the duplicate chapter which has the DUPLICATE_TITLE issue
+      const chapterRows = screen.getAllByText('Chapter 1');
+      fireEvent.click(chapterRows[1]);
 
       expect(screen.getByText('Auto-fixable')).toBeInTheDocument();
     });
