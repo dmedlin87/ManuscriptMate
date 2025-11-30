@@ -55,4 +55,5 @@ export { calculateDiff } from './utils/diffUtils';
 // Components
 export { ErrorBoundary } from './components/ErrorBoundary';
 export { UsageBadge } from './components/UsageBadge';
+export { AccessibleTooltip } from './components/AccessibleTooltip';
 export * from './components/Icons';

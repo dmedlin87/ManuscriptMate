@@ -27,6 +27,11 @@ export {
   type UseChunkIndexReturn,
   type ChunkIndexState,
 } from './hooks/useChunkIndex';
+export { 
+  useTiptapSync, 
+  useDebouncedUpdate, 
+  type HighlightItem 
+} from './hooks/useTiptapSync';
 
 // Extensions
 export { CommentMark } from './extensions/CommentMark';

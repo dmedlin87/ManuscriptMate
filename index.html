@@ -448,6 +448,36 @@
       .inline-comment-highlight:hover {
         filter: brightness(1.1);
       }
+
+      /* ═══════════════════════════════════════════════════════════
+         LIST ANIMATIONS - CSS-based for performance
+         ═══════════════════════════════════════════════════════════ */
+      
+      /* Staggered fade-in for list items (CSS-only, no JS delay calc) */
+      .list-item-enter {
+        animation: listItemEnter 200ms ease-out forwards;
+        opacity: 0;
+      }
+      
+      @keyframes listItemEnter {
+        from {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      
+      /* Apply stagger via nth-child (max 5 items get delay) */
+      .stagger-list > *:nth-child(1) { animation-delay: 0ms; }
+      .stagger-list > *:nth-child(2) { animation-delay: 50ms; }
+      .stagger-list > *:nth-child(3) { animation-delay: 100ms; }
+      .stagger-list > *:nth-child(4) { animation-delay: 150ms; }
+      .stagger-list > *:nth-child(5) { animation-delay: 200ms; }
+      /* Items 6+ appear immediately (no stagger for long lists) */
+      .stagger-list > *:nth-child(n+6) { animation-delay: 0ms; opacity: 1; }
       
       /* Utilities */
       .paper-shadow { box-shadow: var(--shadow-lg); }

@@ -1,24 +1,12 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-
+import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import { Markdown } from 'tiptap-markdown';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { CommentMark } from '../extensions/CommentMark';
 import type { AnyExtension } from '@tiptap/core';
 import { InlineComment } from '@/types/schema';
-
-const ANALYSIS_PLUGIN_KEY = new PluginKey('analysis-decorations');
-const COMMENT_PLUGIN_KEY = new PluginKey('comment-decorations');
-
-interface HighlightItem {
-  start: number;
-  end: number;
-  color: string;
-  title?: string;
-}
+import { useTiptapSync, useDebouncedUpdate, type HighlightItem } from '../hooks/useTiptapSync';
 
 interface RichTextEditorProps {
   content: string;
@@ -27,15 +15,22 @@ interface RichTextEditorProps {
   setEditorRef: (editor: any) => void;
   activeHighlight: { start: number; end: number; type: string } | null;
   analysisHighlights?: HighlightItem[];
-  // Quill AI 3.0: Inline Comments
   inlineComments?: InlineComment[];
   onCommentClick?: (comment: InlineComment, position: { top: number; left: number }) => void;
   onFixWithAgent?: (issue: string, suggestion: string, quote?: string) => void;
   onDismissComment?: (commentId: string) => void;
-  // Quill AI 3.0: Zen Mode
   isZenMode?: boolean;
 }
 
+/**
+ * RichTextEditor - Optimized Tiptap editor component
+ * 
+ * Performance optimizations:
+ * - useTiptapSync: Bundles ref syncing into single effect
+ * - useDebouncedUpdate: Prevents upstream re-renders on every keystroke
+ * - CSS classes for decorations instead of inline styles
+ * - Plugins installed once, not reconfigured on every render
+ */
 const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({ 
   content, 
   onUpdate, 
@@ -51,100 +46,17 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const pluginsInstalledRef = useRef(false);
 
-  const analysisHighlightsRef = useRef<HighlightItem[]>(analysisHighlights);
-  const inlineCommentsRef = useRef<InlineComment[]>(inlineComments);
-  const onCommentClickRef = useRef<typeof onCommentClick>();
+  // Use optimized hook for Tiptap sync (replaces 3 separate useEffect hooks)
+  const { installPlugins, refreshDecorations } = useTiptapSync({
+    analysisHighlights,
+    inlineComments,
+    onCommentClick,
+  });
 
-  useEffect(() => {
-    analysisHighlightsRef.current = analysisHighlights;
-  }, [analysisHighlights]);
-
-  useEffect(() => {
-    inlineCommentsRef.current = inlineComments;
-  }, [inlineComments]);
-
-  useEffect(() => {
-    onCommentClickRef.current = onCommentClick;
-  }, [onCommentClick]);
-
-  const AnalysisDecorations = useMemo(() => {
-    return new Plugin({
-      key: ANALYSIS_PLUGIN_KEY,
-      props: {
-        decorations(state) {
-          const { doc } = state;
-          const decorations: Decoration[] = [];
-          const highlights = analysisHighlightsRef.current;
-
-          highlights.forEach(h => {
-            if (h.start < h.end && h.end <= doc.content.size) {
-              decorations.push(
-                Decoration.inline(h.start, h.end, {
-                  style: `background-color: ${h.color}20; border-bottom: 2px solid ${h.color}; cursor: help;`,
-                  title: h.title || '',
-                })
-              );
-            }
-          });
-
-          return DecorationSet.create(doc, decorations);
-        },
-      },
-    });
-  }, []);
-
-  // Comment decorations plugin
-  const CommentDecorations = useMemo(() => {
-    return new Plugin({
-      key: COMMENT_PLUGIN_KEY,
-      props: {
-        decorations(state) {
-          const { doc } = state;
-          const decorations: Decoration[] = [];
-          const comments = inlineCommentsRef.current;
-
-          comments
-            .filter(c => !c.dismissed)
-            .forEach(comment => {
-              if (comment.startIndex < comment.endIndex && comment.endIndex <= doc.content.size) {
-                const severityColors = {
-                  error: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgb(239, 68, 68)' },
-                  warning: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgb(245, 158, 11)' },
-                  info: { bg: 'rgba(99, 102, 241, 0.12)', border: 'rgb(99, 102, 241)' },
-                };
-                const colors = severityColors[comment.severity] || severityColors.warning;
-
-                decorations.push(
-                  Decoration.inline(comment.startIndex, comment.endIndex, {
-                    class: 'inline-comment-highlight',
-                    style: `background-color: ${colors.bg}; border-bottom: 2px solid ${colors.border}; cursor: pointer;`,
-                    'data-comment-id': comment.id,
-                  })
-                );
-              }
-            });
-
-          return DecorationSet.create(doc, decorations);
-        },
-        handleClick(view, pos, event) {
-          const target = event.target as HTMLElement;
-          const commentId = target.getAttribute('data-comment-id');
-          if (commentId) {
-            const comments = inlineCommentsRef.current;
-            const onClick = onCommentClickRef.current;
-            const comment = comments.find(c => c.id === commentId);
-            if (comment && onClick) {
-              const rect = target.getBoundingClientRect();
-              onClick(comment, { top: rect.bottom + 8, left: rect.left });
-              return true;
-            }
-          }
-          return false;
-        },
-      },
-    });
-  }, []);
+  // Debounced update to prevent re-renders on every keystroke (300ms default)
+  const debouncedOnUpdate = useDebouncedUpdate(onUpdate, 300);
 
   const editor = useEditor({
     extensions: [
@@ -164,7 +76,7 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
     onBlur: () => setIsFocused(false),
     onUpdate: ({ editor }) => {
       const markdown = (editor.storage as any).markdown.getMarkdown();
-      onUpdate(markdown);
+      debouncedOnUpdate(markdown);
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to, empty } = editor.state.selection;
@@ -185,7 +97,7 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
         const { from } = editor.state.selection;
         const coords = editor.view.coordsAtPos(from);
         const viewportHeight = window.innerHeight;
-        const targetY = viewportHeight * 0.45; // Slightly above center feels better
+        const targetY = viewportHeight * 0.45;
         const scrollContainer = editorContainerRef.current?.closest('.overflow-y-auto');
         
         if (scrollContainer && coords) {
@@ -193,7 +105,7 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
           const cursorYInContainer = coords.top - containerRect.top;
           const scrollOffset = cursorYInContainer - targetY;
           
-          if (Math.abs(scrollOffset) > 50) { // Only scroll if cursor is more than 50px from center
+          if (Math.abs(scrollOffset) > 50) {
             scrollContainer.scrollBy({
               top: scrollOffset,
               behavior: 'smooth'
@@ -204,6 +116,7 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
     },
   });
 
+  // Sync external content changes (when not focused)
   useEffect(() => {
     if (editor && content !== undefined) {
       const currentMarkdown = (editor.storage as any).markdown.getMarkdown();
@@ -213,26 +126,25 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
     }
   }, [content, editor]);
 
+  // Install plugins once after editor is ready
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (editor && !editor.isDestroyed && !pluginsInstalledRef.current) {
+      installPlugins(editor);
+      pluginsInstalledRef.current = true;
+    }
+  }, [editor, installPlugins]);
 
-    const state = editor.state;
-    const plugins = state.plugins
-      .filter(p => {
-        const keyObj = p.spec.key as PluginKey | undefined;
-        const keyName = (keyObj as any)?.key ?? (p as any)?.key;
-        return keyName !== 'analysis-decorations' && keyName !== 'comment-decorations';
-      })
-      .concat([AnalysisDecorations, CommentDecorations]);
-
-    const newState = state.reconfigure({ plugins });
-    editor.view.updateState(newState);
-  }, [editor, AnalysisDecorations, CommentDecorations]);
-
+  // Refresh decorations when highlights or comments change
   useEffect(() => {
-    // Parent must memoize setEditorRef to avoid render loops
+    if (editor && pluginsInstalledRef.current) {
+      refreshDecorations(editor);
+    }
+  }, [editor, analysisHighlights, inlineComments, refreshDecorations]);
+
+  // Provide editor ref to parent (parent must memoize setEditorRef)
+  useEffect(() => {
     setEditorRef(editor);
-  }, [editor]);
+  }, [editor, setEditorRef]);
 
   return (
     <div 
