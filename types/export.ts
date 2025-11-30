@@ -1,28 +1,31 @@
-import { AnalysisResult } from './types';
 import { Lore } from './schema';
+import { AnalysisResult } from '@/types';
 
-/**
- * High-level sections that can be assembled into a smart export package.
- * Additional entries (e.g., StoryBible, QueryLetter) can be added without
- * impacting downstream interfaces.
- */
 export enum ExportSection {
-  Manuscript = 'MANUSCRIPT',
-  Characters = 'CHARACTERS',
-  WorldRules = 'WORLD_RULES',
-  AnalysisReport = 'ANALYSIS_REPORT',
+  Manuscript = 'manuscript',
+  Characters = 'characters',
+  WorldRules = 'world-rules',
+  AnalysisReport = 'analysis-report',
+  // StoryBible = 'story-bible',
+  // QueryLetter = 'query-letter',
+}
+
+export interface ManuscriptExportOptions {
+  includeChapterTitles: boolean;
+  fontScale: number; // 1.0 = 12pt roughly
+  lineHeight: number; // e.g. 1.5
+}
+
+export interface AnalysisExportOptions {
+  includeCharts: boolean;
+  detailedBreakdown: boolean;
 }
 
 export interface ExportConfig {
   sections: ExportSection[];
-  manuscriptOptions: {
-    includeChapterTitles: boolean;
-    fontScale: number;
-  };
-  analysisOptions: {
-    includeCharts: boolean;
-    detailedBreakdown: boolean;
-  };
+  manuscriptOptions: ManuscriptExportOptions;
+  analysisOptions: AnalysisExportOptions;
+  filename?: string;
 }
 
 export interface ExportData {
@@ -30,5 +33,5 @@ export interface ExportData {
   author: string;
   content: string;
   lore: Lore;
-  analysis: AnalysisResult;
+  analysis?: AnalysisResult | null;
 }
