@@ -9,6 +9,9 @@ import { CommentMark } from '../extensions/CommentMark';
 import type { AnyExtension } from '@tiptap/core';
 import { InlineComment } from '@/types/schema';
 
+const ANALYSIS_PLUGIN_KEY = new PluginKey('analysis-decorations');
+const COMMENT_PLUGIN_KEY = new PluginKey('comment-decorations');
+
 interface HighlightItem {
     start: number;
     end: number;
@@ -48,39 +51,59 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
+  const analysisHighlightsRef = useRef<HighlightItem[]>(analysisHighlights);
+  const inlineCommentsRef = useRef<InlineComment[]>(inlineComments);
+  const onCommentClickRef = useRef<typeof onCommentClick>();
+
+  useEffect(() => {
+    analysisHighlightsRef.current = analysisHighlights;
+  }, [analysisHighlights]);
+
+  useEffect(() => {
+    inlineCommentsRef.current = inlineComments;
+  }, [inlineComments]);
+
+  useEffect(() => {
+    onCommentClickRef.current = onCommentClick;
+  }, [onCommentClick]);
+
   const AnalysisDecorations = useMemo(() => {
     return new Plugin({
-      key: new PluginKey('analysis-decorations'),
+      key: ANALYSIS_PLUGIN_KEY,
       props: {
         decorations(state) {
           const { doc } = state;
           const decorations: Decoration[] = [];
-          analysisHighlights.forEach(h => {
-             if (h.start < h.end && h.end <= doc.content.size) {
-                 decorations.push(
-                     Decoration.inline(h.start, h.end, {
-                         style: `background-color: ${h.color}20; border-bottom: 2px solid ${h.color}; cursor: help;`,
-                         title: h.title || ''
-                     })
-                 );
-             }
+          const highlights = analysisHighlightsRef.current;
+
+          highlights.forEach(h => {
+            if (h.start < h.end && h.end <= doc.content.size) {
+              decorations.push(
+                Decoration.inline(h.start, h.end, {
+                  style: `background-color: ${h.color}20; border-bottom: 2px solid ${h.color}; cursor: help;`,
+                  title: h.title || '',
+                })
+              );
+            }
           });
+
           return DecorationSet.create(doc, decorations);
-        }
-      }
+        },
+      },
     });
-  }, [analysisHighlights]);
+  }, []);
 
   // Comment decorations plugin
   const CommentDecorations = useMemo(() => {
     return new Plugin({
-      key: new PluginKey('comment-decorations'),
+      key: COMMENT_PLUGIN_KEY,
       props: {
         decorations(state) {
           const { doc } = state;
           const decorations: Decoration[] = [];
-          
-          inlineComments
+          const comments = inlineCommentsRef.current;
+
+          comments
             .filter(c => !c.dismissed)
             .forEach(comment => {
               if (comment.startIndex < comment.endIndex && comment.endIndex <= doc.content.size) {
@@ -90,7 +113,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   info: { bg: 'rgba(99, 102, 241, 0.12)', border: 'rgb(99, 102, 241)' },
                 };
                 const colors = severityColors[comment.severity] || severityColors.warning;
-                
+
                 decorations.push(
                   Decoration.inline(comment.startIndex, comment.endIndex, {
                     class: 'inline-comment-highlight',
@@ -100,25 +123,27 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 );
               }
             });
-          
+
           return DecorationSet.create(doc, decorations);
         },
         handleClick(view, pos, event) {
           const target = event.target as HTMLElement;
           const commentId = target.getAttribute('data-comment-id');
           if (commentId) {
-            const comment = inlineComments.find(c => c.id === commentId);
-            if (comment && onCommentClick) {
+            const comments = inlineCommentsRef.current;
+            const onClick = onCommentClickRef.current;
+            const comment = comments.find(c => c.id === commentId);
+            if (comment && onClick) {
               const rect = target.getBoundingClientRect();
-              onCommentClick(comment, { top: rect.bottom + 8, left: rect.left });
+              onClick(comment, { top: rect.bottom + 8, left: rect.left });
               return true;
             }
           }
           return false;
-        }
-      }
+        },
+      },
     });
-  }, [inlineComments, onCommentClick]);
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -126,7 +151,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       Highlight.configure({ multicolor: true }),
       Markdown.configure({ html: false, transformPastedText: true, transformCopiedText: true }),
       CommentMark as AnyExtension,
-    ],
+    ] as unknown as AnyExtension[],
     content: content, 
     editorProps: {
       attributes: {
@@ -180,25 +205,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   useEffect(() => {
     if (editor && content !== undefined) {
-       const currentMarkdown = (editor.storage as any).markdown.getMarkdown();
-       if (currentMarkdown !== content && !editor.isFocused) {
-           editor.commands.setContent(content);
-       }
+      const currentMarkdown = (editor.storage as any).markdown.getMarkdown();
+      if (currentMarkdown !== content && !editor.isFocused) {
+        editor.commands.setContent(content);
+      }
     }
   }, [content, editor]);
 
   useEffect(() => {
-    if (editor && !editor.isDestroyed) {
-        const newState = editor.state.reconfigure({ 
-            plugins: editor.state.plugins
-                .filter(p => {
-                  const key = (p.spec.key as any)?.key;
-                  return key !== 'analysis-decorations' && key !== 'comment-decorations';
-                })
-                .concat([AnalysisDecorations, CommentDecorations]) 
-        });
-        editor.view.updateState(newState);
-    }
+    if (!editor || editor.isDestroyed) return;
+
+    const state = editor.state;
+    const plugins = state.plugins
+      .filter(p => {
+        const key = p.spec.key as PluginKey | undefined;
+        return key !== ANALYSIS_PLUGIN_KEY && key !== COMMENT_PLUGIN_KEY;
+      })
+      .concat([AnalysisDecorations, CommentDecorations]);
+
+    const newState = state.reconfigure({ plugins });
+    editor.view.updateState(newState);
   }, [editor, AnalysisDecorations, CommentDecorations]);
 
   useEffect(() => {

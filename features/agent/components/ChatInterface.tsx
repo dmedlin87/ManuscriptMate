@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage, EditorContext, AnalysisResult, CharacterProfile } from '@/types';
 
 import { getMemoriesForContext, getActiveGoals, formatMemoriesForPrompt, formatGoalsForPrompt } from '@/services/memory';
+import { clearSessionMemories, shouldRefreshContext, getSessionMemorySummary } from '@/services/memory/sessionTracker';
 
 
 
@@ -161,6 +162,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Initialize Chat Session
 
   const initializeSession = async () => {
+    // FIX: Clear session memory tracking when session reinitializes
+    // This ensures stale session state doesn't carry over
+    clearSessionMemories();
 
     // Construct a single string containing all chapters for context
 

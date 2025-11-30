@@ -12,7 +12,7 @@
 
 import { db } from '../db';
 import { MemoryNote, AgentGoal } from './types';
-import { updateMemory, deleteMemory, getMemories } from './index';
+import { updateMemory, deleteMemory, getMemories, getMemoriesForConsolidation, countProjectMemories } from './index';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -90,7 +90,10 @@ function hasTagOverlap(tags1: string[], tags2: string[]): boolean {
 
 /**
  * Apply importance decay to old memories
- * Memories that haven't been reinforced lose importance over time
+ * Memories that haven't been reinforced lose importance over time.
+ * 
+ * FIX: Uses oldest-first sorting with pagination to ensure ALL old memories
+ * are eventually processed, not just the most recent ones.
  */
 export async function applyImportanceDecay(
   options: ConsolidationOptions
@@ -108,20 +111,18 @@ export async function applyImportanceDecay(
   const now = Date.now();
   const decayStartMs = decayStartDays * 24 * 60 * 60 * 1000;
 
-  // Get memories for this project
-  const memories = await getMemories({
-    scope: 'project',
-    projectId,
+  // FIX: Use oldest-first query to process memories that haven't been updated recently
+  // This ensures old memories aren't stranded beyond batch limits
+  const memories = await getMemoriesForConsolidation(projectId, {
+    sortBy: 'updatedAt', // Oldest updated first - most likely to need decay
+    minAge: decayStartMs, // Only get memories old enough to decay
     limit: batchSize,
   });
 
   for (const memory of memories) {
-    // Calculate age
+    // Calculate age from last update
     const lastUpdated = memory.updatedAt || memory.createdAt;
     const age = now - lastUpdated;
-    
-    // Skip if not old enough to decay
-    if (age < decayStartMs) continue;
     
     // Calculate decay amount
     const daysOld = Math.floor((age - decayStartMs) / (24 * 60 * 60 * 1000));
@@ -160,7 +161,29 @@ interface MergeCandidate {
 }
 
 /**
- * Find pairs of memories that could be merged
+ * Build an inverted index from tags to memory IDs.
+ * This enables O(n * avg_matches) instead of O(n²) comparisons.
+ */
+function buildTagIndex(memories: MemoryNote[]): Map<string, Set<string>> {
+  const tagIndex = new Map<string, Set<string>>();
+  
+  for (const memory of memories) {
+    for (const tag of memory.topicTags) {
+      if (!tagIndex.has(tag)) {
+        tagIndex.set(tag, new Set());
+      }
+      tagIndex.get(tag)!.add(memory.id);
+    }
+  }
+  
+  return tagIndex;
+}
+
+/**
+ * Find pairs of memories that could be merged.
+ * 
+ * FIX: Uses inverted index to reduce O(n²) to O(n * avg_matches).
+ * Only compares memories that share at least one tag AND same type.
  */
 async function findMergeCandidates(
   projectId: string,
@@ -173,25 +196,60 @@ async function findMergeCandidates(
     limit,
   });
 
-  const candidates: MergeCandidate[] = [];
+  if (memories.length < 2) return [];
 
-  // Compare each pair (O(n²) but limited by batch size)
-  for (let i = 0; i < memories.length; i++) {
-    for (let j = i + 1; j < memories.length; j++) {
-      const m1 = memories[i];
-      const m2 = memories[j];
-      
+  // Build indexes for efficient lookup
+  const memoryById = new Map(memories.map(m => [m.id, m]));
+  const tagIndex = buildTagIndex(memories);
+  
+  // Group memories by type first (must be same type to merge)
+  const byType = new Map<string, MemoryNote[]>();
+  for (const memory of memories) {
+    if (!byType.has(memory.type)) {
+      byType.set(memory.type, []);
+    }
+    byType.get(memory.type)!.push(memory);
+  }
+
+  const candidates: MergeCandidate[] = [];
+  const comparedPairs = new Set<string>(); // Track which pairs we've compared
+
+  // For each memory, find potential matches via shared tags
+  for (const memory of memories) {
+    // Collect candidate IDs from tag index (memories sharing at least one tag)
+    const candidateIds = new Set<string>();
+    for (const tag of memory.topicTags) {
+      const tagged = tagIndex.get(tag);
+      if (tagged) {
+        for (const id of tagged) {
+          if (id !== memory.id) {
+            candidateIds.add(id);
+          }
+        }
+      }
+    }
+
+    // Compare only with candidates sharing tags
+    for (const candidateId of candidateIds) {
+      // Ensure we don't compare the same pair twice
+      const pairKey = [memory.id, candidateId].sort().join(':');
+      if (comparedPairs.has(pairKey)) continue;
+      comparedPairs.add(pairKey);
+
+      const candidate = memoryById.get(candidateId);
+      if (!candidate) continue;
+
       // Must be same type to merge
-      if (m1.type !== m2.type) continue;
-      
-      // Check tag overlap first (cheaper)
-      if (!hasTagOverlap(m1.topicTags, m2.topicTags)) continue;
-      
-      // Check text similarity
-      const similarity = jaccardSimilarity(m1.text, m2.text);
-      
+      if (memory.type !== candidate.type) continue;
+
+      // Verify tag overlap (shared tags from index, but ensure 50% threshold)
+      if (!hasTagOverlap(memory.topicTags, candidate.topicTags)) continue;
+
+      // Calculate text similarity (only for pairs passing above filters)
+      const similarity = jaccardSimilarity(memory.text, candidate.text);
+
       if (similarity >= threshold) {
-        candidates.push({ memory1: m1, memory2: m2, similarity });
+        candidates.push({ memory1: memory, memory2: candidate, similarity });
       }
     }
   }
@@ -273,8 +331,11 @@ export async function mergeSimikarMemories(
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Archive (delete) memories below importance threshold
- * Only archives memories that are old enough
+ * Archive (delete) memories below importance threshold.
+ * Only archives memories that are old enough.
+ * 
+ * FIX: Uses targeted query that directly fetches low-importance old memories,
+ * ensuring stale memories aren't missed due to paging limits.
  */
 export async function archiveStaleMemories(
   options: ConsolidationOptions
@@ -288,19 +349,15 @@ export async function archiveStaleMemories(
   } = options;
 
   const result = { archived: 0, errors: [] as string[] };
-  const now = Date.now();
   const minAge = decayStartDays * 24 * 60 * 60 * 1000;
 
-  // Get low-importance memories
-  const memories = await getMemories({
-    scope: 'project',
-    projectId,
+  // FIX: Directly query old, low-importance memories using targeted filters
+  // This ensures we find archivable memories regardless of total memory count
+  const toArchive = await getMemoriesForConsolidation(projectId, {
+    sortBy: 'createdAt', // Oldest first
+    maxImportance: archiveThreshold,
+    minAge: minAge,
     limit: batchSize,
-  });
-
-  const toArchive = memories.filter(m => {
-    const age = now - m.createdAt;
-    return m.importance <= archiveThreshold && age > minAge;
   });
 
   for (const memory of toArchive) {
@@ -456,7 +513,10 @@ export async function archiveOldGoals(
 }
 
 /**
- * Get statistics about memory health
+ * Get statistics about memory health.
+ * 
+ * FIX: Uses direct count for total memories to handle large datasets.
+ * Samples for stats calculations to avoid loading entire dataset.
  */
 export async function getMemoryHealthStats(
   projectId: string
@@ -468,19 +528,31 @@ export async function getMemoryHealthStats(
   activeGoals: number;
   completedGoals: number;
 }> {
-  const memories = await getMemories({ scope: 'project', projectId, limit: 1000 });
+  // FIX: Get true count instead of capped fetch
+  const totalMemories = await countProjectMemories(projectId);
+  
+  // For stats, sample a reasonable subset (processing all would be slow for large sets)
+  const sampleSize = Math.min(totalMemories, 500);
+  const memories = await getMemories({ scope: 'project', projectId, limit: sampleSize });
   const goals = await db.goals.where('projectId').equals(projectId).toArray();
   
   const now = Date.now();
   const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
 
+  // If we have all memories, use exact counts; otherwise extrapolate from sample
+  const isFullSample = memories.length === totalMemories;
+  const sampleRatio = isFullSample ? 1 : totalMemories / memories.length;
+
+  const lowInSample = memories.filter(m => m.importance < 0.3).length;
+  const oldInSample = memories.filter(m => m.createdAt < sevenDaysAgo).length;
+
   return {
-    totalMemories: memories.length,
+    totalMemories,
     avgImportance: memories.length > 0 
       ? memories.reduce((sum, m) => sum + m.importance, 0) / memories.length 
       : 0,
-    lowImportanceCount: memories.filter(m => m.importance < 0.3).length,
-    oldMemoriesCount: memories.filter(m => m.createdAt < sevenDaysAgo).length,
+    lowImportanceCount: isFullSample ? lowInSample : Math.round(lowInSample * sampleRatio),
+    oldMemoriesCount: isFullSample ? oldInSample : Math.round(oldInSample * sampleRatio),
     activeGoals: goals.filter(g => g.status === 'active').length,
     completedGoals: goals.filter(g => g.status === 'completed').length,
   };

@@ -358,6 +358,7 @@ export interface ManuscriptIntelligence {
   entities: EntityGraph;
   timeline: Timeline;
   style: StyleFingerprint;
+  voice: VoiceFingerprint;
   heatmap: AttentionHeatmap;
   delta: ManuscriptDelta;
   hud: ManuscriptHUD;

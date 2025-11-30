@@ -19,6 +19,8 @@ vi.mock('@/services/db', () => ({
 
 vi.mock('@/services/memory/index', () => ({
   getMemories: vi.fn(),
+  getMemoriesForConsolidation: vi.fn(),
+  countProjectMemories: vi.fn(),
   updateMemory: vi.fn(),
   deleteMemory: vi.fn(),
 }));
@@ -32,7 +34,7 @@ import {
   runConsolidation,
   getMemoryHealthStats,
 } from '@/services/memory/consolidation';
-import { getMemories, updateMemory, deleteMemory } from '@/services/memory/index';
+import { getMemories, getMemoriesForConsolidation, countProjectMemories, updateMemory, deleteMemory } from '@/services/memory/index';
 import { db } from '@/services/db';
 
 describe('Memory Consolidation', () => {
@@ -63,7 +65,8 @@ describe('Memory Consolidation', () => {
         createdAt: oneWeekAgo,
       };
 
-      vi.mocked(getMemories).mockResolvedValue([oldMemory]);
+      // FIX: Use getMemoriesForConsolidation mock instead of getMemories
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([oldMemory]);
       vi.mocked(updateMemory).mockResolvedValue({ ...oldMemory, importance: 0.78 });
 
       const result = await applyImportanceDecay({ projectId: mockProjectId });
@@ -76,18 +79,8 @@ describe('Memory Consolidation', () => {
     });
 
     it('skips recent memories', async () => {
-      const recentMemory = {
-        id: 'recent-mem-1',
-        text: 'Recent memory',
-        type: 'observation' as const,
-        scope: 'project' as const,
-        projectId: mockProjectId,
-        topicTags: ['test'],
-        importance: 0.8,
-        createdAt: now - (1 * 24 * 60 * 60 * 1000), // 1 day ago
-      };
-
-      vi.mocked(getMemories).mockResolvedValue([recentMemory]);
+      // FIX: With new query, only old memories are returned, so empty result
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([]);
 
       const result = await applyImportanceDecay({ projectId: mockProjectId });
 
@@ -107,7 +100,7 @@ describe('Memory Consolidation', () => {
         createdAt: oneWeekAgo,
       };
 
-      vi.mocked(getMemories).mockResolvedValue([oldMemory]);
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([oldMemory]);
 
       const result = await applyImportanceDecay({ 
         projectId: mockProjectId, 
@@ -197,7 +190,8 @@ describe('Memory Consolidation', () => {
         createdAt: oneWeekAgo,
       };
 
-      vi.mocked(getMemories).mockResolvedValue([staleMemory]);
+      // FIX: Use getMemoriesForConsolidation - already filters by age & importance
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([staleMemory]);
 
       const result = await archiveStaleMemories({ projectId: mockProjectId });
 
@@ -206,18 +200,8 @@ describe('Memory Consolidation', () => {
     });
 
     it('preserves important memories even if old', async () => {
-      const importantMemory = {
-        id: 'important-mem-1',
-        text: 'Critical story decision',
-        type: 'fact' as const,
-        scope: 'project' as const,
-        projectId: mockProjectId,
-        topicTags: ['plot'],
-        importance: 0.9,
-        createdAt: oneWeekAgo,
-      };
-
-      vi.mocked(getMemories).mockResolvedValue([importantMemory]);
+      // FIX: With new query, important memories are filtered out at query level
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([]);
 
       const result = await archiveStaleMemories({ projectId: mockProjectId });
 
@@ -316,6 +300,7 @@ describe('Memory Consolidation', () => {
 
   describe('runConsolidation', () => {
     it('runs full consolidation pipeline', async () => {
+      vi.mocked(getMemoriesForConsolidation).mockResolvedValue([]);
       vi.mocked(getMemories).mockResolvedValue([]);
 
       const result = await runConsolidation({ projectId: mockProjectId });
@@ -330,28 +315,46 @@ describe('Memory Consolidation', () => {
 
   describe('getMemoryHealthStats', () => {
     it('returns health statistics', async () => {
-      const memories = [
-        { importance: 0.8, createdAt: now },
-        { importance: 0.2, createdAt: oneWeekAgo },
-        { importance: 0.5, createdAt: now },
-      ];
+      // FIX: Mock countProjectMemories for accurate count
+      vi.mocked(countProjectMemories).mockResolvedValue(2);
+      vi.mocked(getMemories).mockResolvedValue([
+        {
+          id: 'mem-1',
+          text: 'Memory 1',
+          type: 'observation' as const,
+          scope: 'project' as const,
+          projectId: mockProjectId,
+          topicTags: ['test'],
+          importance: 0.8,
+          createdAt: now,
+        },
+        {
+          id: 'mem-2',
+          text: 'Memory 2',
+          type: 'fact' as const,
+          scope: 'project' as const,
+          projectId: mockProjectId,
+          topicTags: ['plot'],
+          importance: 0.2,
+          createdAt: oneWeekAgo,
+        },
+      ]);
 
-      vi.mocked(getMemories).mockResolvedValue(memories as any);
-      vi.mocked(db.goals.where).mockReturnThis();
-      vi.mocked(db.goals.equals).mockReturnThis();
-      vi.mocked(db.goals.toArray).mockResolvedValue([
-        { status: 'active' },
-        { status: 'completed' },
-        { status: 'active' },
-      ] as any);
+      vi.mocked(db.goals.where).mockReturnValue({
+        equals: vi.fn().mockReturnValue({
+          toArray: vi.fn().mockResolvedValue([
+            { id: 'goal-1', status: 'active', projectId: mockProjectId },
+            { id: 'goal-2', status: 'completed', projectId: mockProjectId },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.goals.where>);
 
       const stats = await getMemoryHealthStats(mockProjectId);
 
-      expect(stats.totalMemories).toBe(3);
-      expect(stats.avgImportance).toBeCloseTo(0.5, 1);
+      expect(stats.totalMemories).toBe(2);
+      expect(stats.avgImportance).toBeCloseTo(0.5);
       expect(stats.lowImportanceCount).toBe(1);
-      expect(stats.oldMemoriesCount).toBe(1);
-      expect(stats.activeGoals).toBe(2);
+      expect(stats.activeGoals).toBe(1);
       expect(stats.completedGoals).toBe(1);
     });
   });

@@ -13,6 +13,7 @@ import { parseStructure } from './structuralParser';
 import { extractEntities } from './entityExtractor';
 import { buildTimeline } from './timelineTracker';
 import { analyzeStyle } from './styleAnalyzer';
+import { analyzeVoices } from './voiceProfiler';
 import { buildHeatmap } from './heatmapBuilder';
 import { createDelta, createEmptyDelta } from './deltaTracker';
 import { buildHUD } from './contextBuilder';
@@ -99,24 +100,29 @@ const processFullManuscript = (
   const timeline = buildTimeline(text, structural.scenes, chapterId);
   sendProgress(requestId, 'Timeline complete', 55);
   
-  // 4. Style analysis (70%)
+  // 4. Style analysis (65%)
   sendProgress(requestId, 'Analyzing style', 60);
   const style = analyzeStyle(text);
-  sendProgress(requestId, 'Style complete', 70);
+  sendProgress(requestId, 'Style complete', 65);
   
-  // 5. Heatmap building (85%)
+  // 5. Voice analysis (75%)
+  sendProgress(requestId, 'Analyzing voices', 70);
+  const voice = analyzeVoices(structural.dialogueMap);
+  sendProgress(requestId, 'Voices complete', 75);
+  
+  // 6. Heatmap building (85%)
   sendProgress(requestId, 'Building heatmap', 80);
   const heatmap = buildHeatmap(text, structural, entities, timeline, style);
   sendProgress(requestId, 'Heatmap complete', 85);
   
-  // 6. Delta tracking (90%)
+  // 7. Delta tracking (90%)
   sendProgress(requestId, 'Tracking changes', 88);
   const delta: ManuscriptDelta = previousText && previousIntelligence
     ? createDelta(previousText, text, previousIntelligence.entities, previousIntelligence.timeline)
     : createEmptyDelta(text);
   sendProgress(requestId, 'Changes tracked', 90);
   
-  // 7. Build HUD (100%)
+  // 8. Build HUD (100%)
   sendProgress(requestId, 'Building HUD', 95);
   const intelligence: ManuscriptIntelligence = {
     chapterId,
@@ -124,6 +130,7 @@ const processFullManuscript = (
     entities,
     timeline,
     style,
+    voice,
     heatmap,
     delta,
     hud: null as any, // Temporary

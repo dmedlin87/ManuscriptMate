@@ -3,6 +3,10 @@
  * 
  * Maps memory-related agent tool calls to the memory service layer.
  * Designed to be merged with other tool handlers in the agent service.
+ * 
+ * FIX: Integrates session tracking to solve "stale context" problem.
+ * Tool responses now include session memory summary so agent knows what
+ * it has saved this session without needing full context rebuild.
  */
 
 import {
@@ -15,6 +19,14 @@ import {
   addWatchedEntity,
 } from '../memory';
 import { MemoryNoteType, MemoryScope } from '../memory/types';
+import {
+  trackSessionMemory,
+  trackSessionMemoryUpdate,
+  trackSessionMemoryDelete,
+  trackSessionGoal,
+  hasRecentSimilarMemory,
+  getSessionMemoryCount,
+} from '../memory/sessionTracker';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -35,6 +47,8 @@ export type MemoryToolHandler = (
 
 /**
  * write_memory_note - Save an observation, decision, or preference
+ * 
+ * FIX: Tracks session memories and checks for duplicates within session.
  */
 const handleWriteMemoryNote: MemoryToolHandler = async (args, context) => {
   const { text, type, scope, tags, importance } = args as {
@@ -49,6 +63,11 @@ const handleWriteMemoryNote: MemoryToolHandler = async (args, context) => {
     return 'Error: Missing required fields (text, type, scope)';
   }
 
+  // FIX: Check for similar memory already created this session
+  if (hasRecentSimilarMemory(text, 0.8)) {
+    return `Note: A very similar memory was already saved this session. Skipped to avoid duplication.`;
+  }
+
   try {
     const memory = await createMemory({
       text,
@@ -59,7 +78,13 @@ const handleWriteMemoryNote: MemoryToolHandler = async (args, context) => {
       importance: importance ?? 0.5,
     });
 
-    return `✓ Memory saved (ID: ${memory.id.slice(0, 8)}...)\nType: ${type}\nScope: ${scope}\nTags: ${(tags || []).join(', ') || 'none'}`;
+    // FIX: Track in session state so agent knows what it saved
+    trackSessionMemory(memory);
+    
+    const sessionCount = getSessionMemoryCount();
+    const sessionNote = sessionCount > 1 ? ` (${sessionCount} memories saved this session)` : '';
+
+    return `✓ Memory saved (ID: ${memory.id.slice(0, 8)}...)${sessionNote}\nType: ${type}\nScope: ${scope}\nTags: ${(tags || []).join(', ') || 'none'}\nContent: "${text.slice(0, 80)}${text.length > 80 ? '...' : ''}"`;
   } catch (error) {
     console.error('[memoryToolHandlers] write_memory_note error:', error);
     return `Error saving memory: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -151,6 +176,9 @@ const handleUpdateMemoryNote: MemoryToolHandler = async (args) => {
       return `Memory with ID "${id}" not found.`;
     }
 
+    // FIX: Track session update
+    trackSessionMemoryUpdate(id, Object.keys(updates).join(', '));
+
     return `✓ Memory updated (ID: ${id.slice(0, 8)}...)\nUpdated fields: ${Object.keys(updates).join(', ')}`;
   } catch (error) {
     console.error('[memoryToolHandlers] update_memory_note error:', error);
@@ -170,6 +198,10 @@ const handleDeleteMemoryNote: MemoryToolHandler = async (args) => {
 
   try {
     await deleteMemory(id);
+    
+    // FIX: Track session deletion
+    trackSessionMemoryDelete(id);
+
     return `✓ Memory deleted (ID: ${id.slice(0, 8)}...)`;
   } catch (error) {
     console.error('[memoryToolHandlers] delete_memory_note error:', error);
@@ -197,6 +229,9 @@ const handleCreateGoal: MemoryToolHandler = async (args, context) => {
       description,
       status: 'active',
     });
+
+    // FIX: Track session goal creation
+    trackSessionGoal(goal.id);
 
     return `✓ Goal created (ID: ${goal.id.slice(0, 8)}...)\nTitle: "${title}"\nStatus: active\nProgress: 0%`;
   } catch (error) {

@@ -33,6 +33,7 @@ export * from './structuralParser';
 export * from './entityExtractor';
 export * from './timelineTracker';
 export * from './styleAnalyzer';
+export * from './voiceProfiler';
 export * from './heatmapBuilder';
 export * from './contextBuilder';
 export * from './deltaTracker';
@@ -81,6 +82,7 @@ import {
   getIntelligenceCache,
   clearIntelligenceCache,
 } from './cache';
+import { analyzeVoices } from './voiceProfiler';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FULL PROCESSING
@@ -112,7 +114,10 @@ export const processManuscript = (
   // 4. Style analysis
   const style = analyzeStyle(text);
   
-  // 5. Heatmap building
+  // 5. Voice analysis
+  const voice = analyzeVoices(structural.dialogueMap);
+  
+  // 6. Heatmap building
   const heatmap = buildHeatmap(text, structural, entities, timeline, style);
   
   // 6. Delta tracking
@@ -120,9 +125,9 @@ export const processManuscript = (
     ? createDelta(previousText, text, previousIntelligence.entities, previousIntelligence.timeline)
     : createEmptyDelta(text);
   
-  // 7. Build initial HUD (cursor at 0)
+  // 8. Build initial HUD (cursor at 0)
   const hud = buildHUD(
-    { chapterId, structural, entities, timeline, style, heatmap, delta, hud: null as any },
+    { chapterId, structural, entities, timeline, style, voice, heatmap, delta, hud: null as any },
     0
   );
   
@@ -132,6 +137,7 @@ export const processManuscript = (
     entities,
     timeline,
     style,
+    voice,
     heatmap,
     delta,
     hud,
@@ -165,17 +171,20 @@ export const processManuscriptCached = (
   // 4. Style analysis (cached)
   const style = analyzeStyleCached(text);
   
-  // 5. Heatmap building (not cached - depends on all components)
+  // 5. Voice analysis
+  const voice = analyzeVoices(structural.dialogueMap);
+  
+  // 6. Heatmap building (not cached - depends on all components)
   const heatmap = buildHeatmap(text, structural, entities, timeline, style);
   
-  // 6. Delta tracking
+  // 7. Delta tracking
   const delta = previousText && previousIntelligence
     ? createDelta(previousText, text, previousIntelligence.entities, previousIntelligence.timeline)
     : createEmptyDelta(text);
   
-  // 7. Build initial HUD (cursor at 0)
+  // 8. Build initial HUD (cursor at 0)
   const hud = buildHUD(
-    { chapterId, structural, entities, timeline, style, heatmap, delta, hud: null as any },
+    { chapterId, structural, entities, timeline, style, voice, heatmap, delta, hud: null as any },
     0
   );
   
@@ -185,6 +194,7 @@ export const processManuscriptCached = (
     entities,
     timeline,
     style,
+    voice,
     heatmap,
     delta,
     hud,
@@ -495,6 +505,11 @@ export const createEmptyIntelligence = (chapterId: string): ManuscriptIntelligen
     processedAt: Date.now(),
   };
   
+  const emptyVoice = {
+    profiles: {},
+    consistencyAlerts: [],
+  };
+  
   const emptyDelta: ManuscriptDelta = {
     changedRanges: [],
     invalidatedSections: [],
@@ -533,6 +548,7 @@ export const createEmptyIntelligence = (chapterId: string): ManuscriptIntelligen
     entities: emptyEntities,
     timeline: emptyTimeline,
     style: emptyStyle,
+    voice: emptyVoice,
     heatmap: emptyHeatmap,
     delta: emptyDelta,
     hud: emptyHUD,

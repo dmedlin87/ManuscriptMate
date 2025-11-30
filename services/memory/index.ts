@@ -109,6 +109,72 @@ export async function getMemories(
 }
 
 /**
+ * Get memories sorted oldest-first for consolidation operations.
+ * This ensures old memories aren't stranded beyond batch limits.
+ * 
+ * @param sortBy - 'updatedAt' for decay (oldest updated), 'createdAt' for archival
+ */
+export async function getMemoriesForConsolidation(
+  projectId: string,
+  options: {
+    sortBy?: 'updatedAt' | 'createdAt';
+    maxImportance?: number;
+    minAge?: number; // milliseconds
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<MemoryNote[]> {
+  const { 
+    sortBy = 'updatedAt', 
+    maxImportance,
+    minAge,
+    limit = 100,
+    offset = 0,
+  } = options;
+
+  const now = Date.now();
+
+  // Fetch all project memories
+  let results = await db.memories
+    .where('[scope+projectId]')
+    .equals(['project', projectId])
+    .toArray();
+
+  // Filter by max importance (for archival targeting low-importance)
+  if (maxImportance !== undefined) {
+    results = results.filter(m => m.importance <= maxImportance);
+  }
+
+  // Filter by minimum age
+  if (minAge !== undefined) {
+    results = results.filter(m => {
+      const age = now - (m.updatedAt || m.createdAt);
+      return age >= minAge;
+    });
+  }
+
+  // Sort oldest-first based on sortBy field
+  results.sort((a, b) => {
+    const aTime = sortBy === 'updatedAt' ? (a.updatedAt || a.createdAt) : a.createdAt;
+    const bTime = sortBy === 'updatedAt' ? (b.updatedAt || b.createdAt) : b.createdAt;
+    return aTime - bTime; // Ascending (oldest first)
+  });
+
+  // Apply offset and limit for pagination
+  return results.slice(offset, offset + limit);
+}
+
+/**
+ * Count total memories for a project (for pagination).
+ */
+export async function countProjectMemories(projectId: string): Promise<number> {
+  return db.memories
+    .where('[scope+projectId]')
+    .equals(['project', projectId])
+    .count();
+}
+
+/**
  * Get a single memory note by ID.
  */
 export async function getMemory(id: string): Promise<MemoryNote | undefined> {
@@ -438,3 +504,9 @@ export * from './autoObserver';
 // ────────────────────────────────────────────────────────────────────────────────
 
 export * from './consolidation';
+
+// ────────────────────────────────────────────────────────────────────────────────
+// SESSION TRACKING
+// ────────────────────────────────────────────────────────────────────────────────
+
+export * from './sessionTracker';
