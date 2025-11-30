@@ -31,9 +31,8 @@ const messageVariants = {
 
 };
 
-import { createAgentSession } from '@/services/gemini/agent';
-
-import { Chat } from "@google/genai";
+import { QuillAgent } from '@/services/gemini/agent';
+import { RateLimitError, AIError } from '@/services/gemini/errors';
 
 import { Lore, Chapter } from '@/types/schema';
 
@@ -122,9 +121,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const [isDeepMode, setIsDeepMode] = useState(false);
 
-  
-
-  const chatRef = useRef<Chat | null>(null);
+  const chatRef = useRef<QuillAgent | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -193,11 +190,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const personaForSession = isInterviewMode ? undefined : personaRef.current;
 
-    chatRef.current = createAgentSession({
-      lore, 
-      analysis: analysis || undefined, 
-      fullManuscriptContext: fullManuscript, 
-      persona: personaForSession, 
+    const agent = new QuillAgent({
+      lore,
+      analysis: analysis || undefined,
+      fullManuscriptContext: fullManuscript,
+      persona: personaForSession,
       intensity: critiqueIntensity,
       experience: experienceLevel,
       autonomy: autonomyMode,
@@ -205,29 +202,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       memoryContext,
       voiceFingerprint,
       deepAnalysis: isDeepMode,
+      telemetryContext: {
+        source: 'ChatInterface.initializeSession',
+        projectId,
+        isDeepMode,
+        isInterviewMode,
+      },
     });
 
-    
+    await agent.initialize();
+    chatRef.current = agent;
 
     // Initialize with instructions but no visible message
+    const intro = isInterviewMode && interviewTarget
+      ? `I have loaded the manuscript. Total Chapters: ${chapters.length}. Active Chapter Length: ${fullText.length} characters. I am ${interviewTarget.name}, speaking in interview mode. Ask me anything about my story or choices.`
+      : `I have loaded the manuscript. Total Chapters: ${chapters.length}. Active Chapter Length: ${fullText.length} characters. I am ${personaRef.current.name}, ready to help with my ${personaRef.current.role} expertise.`;
 
-    const init = async () => {
-
-       const intro = isInterviewMode && interviewTarget
-
-        ? `I have loaded the manuscript. Total Chapters: ${chapters.length}. Active Chapter Length: ${fullText.length} characters. I am ${interviewTarget.name}, speaking in interview mode. Ask me anything about my story or choices.`
-
-        : `I have loaded the manuscript. Total Chapters: ${chapters.length}. Active Chapter Length: ${fullText.length} characters. I am ${personaRef.current.name}, ready to help with my ${personaRef.current.role} expertise.`;
-
-       await chatRef.current?.sendMessage({ 
-
-           message: intro
-
-       });
-
-    };
-
-    init();
+    await agent.sendMessage({
+      message: intro,
+    } as any);
 
   };
 
@@ -300,8 +293,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       ${messageText}
       `;
 
-      // 2. Send to Gemini
-      let result = await chatRef.current.sendMessage({ message: contextPrompt });
+      // 2. Send to Gemini via QuillAgent
+      let result = await chatRef.current.sendMessage({ message: contextPrompt } as any);
       
       // 3. Handle Tool Calls Loop
       while (result.functionCalls && result.functionCalls.length > 0) {
@@ -355,8 +348,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         // Send tool results back to model
         setAgentState('thinking');
         result = await chatRef.current.sendMessage({
-           message: functionResponses.map(resp => ({ functionResponse: resp }))
-        });
+           message: functionResponses.map(resp => ({ functionResponse: resp })),
+        } as any);
       }
 
       // 4. Final Text Response
@@ -369,9 +362,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     } catch (e) {
       console.error(e);
+
+      let friendlyMessage = 'Sorry, I encountered an error connecting to the Agent.';
+
+      if (e instanceof RateLimitError) {
+        friendlyMessage = "The AI is cooling down. Please wait a moment.";
+      } else if (e instanceof AIError) {
+        friendlyMessage = e.message || friendlyMessage;
+      }
+
       setMessages(prev => [...prev, {
         role: 'model',
-        text: "Sorry, I encountered an error connecting to the Agent.",
+        text: friendlyMessage,
         timestamp: new Date()
       }]);
     } finally {

@@ -7,7 +7,8 @@ import { UploadLayout } from './UploadLayout';
 import { ChatInterface, ActivityFeed, AIPresenceOrb, type OrbStatus } from '@/features/agent';
 import { DEFAULT_PERSONAS } from '@/types/personas';
 import { VoiceMode } from '@/features/voice';
-import { useEditor, useEngine, UsageBadge } from '@/features/shared';
+import { useEngine, UsageBadge } from '@/features/shared';
+import { useEditorState, useEditorActions } from '@/features/shared/context/EditorContext';
 import { Dashboard } from '@/features/analysis';
 import { KnowledgeGraph, LoreManager } from '@/features/lore';
 
@@ -40,7 +41,8 @@ const Icons = {
 export const MainLayout: React.FC = () => {
   // Consume contexts directly - no more prop drilling
   const { currentProject, getActiveChapter, chapters } = useProjectStore();
-  const { currentText, selectionRange, history, restore, editor, isZenMode, toggleZenMode } = useEditor();
+  const { currentText, selectionRange, history, editor, isZenMode } = useEditorState();
+  const { restore, toggleZenMode } = useEditorActions();
   const { state: engineState, actions: engineActions } = useEngine();
 
   const activeChapter = getActiveChapter();

@@ -11,6 +11,8 @@ import { ExperienceLevel, AutonomyMode, DEFAULT_EXPERIENCE, DEFAULT_AUTONOMY } f
 import { getIntensityModifier } from "./critiquePrompts";
 import { getExperienceModifier, getAutonomyModifier } from "./experiencePrompts";
 import { ManuscriptHUD, VoiceFingerprint } from "../../types/intelligence";
+import type { Chat } from "@google/genai";
+import { AIError, normalizeAIError } from "./errors";
 
 /**
  * Build a roleplay interview block for a character, preserving manuscript context.
@@ -444,3 +446,64 @@ export const createAgentSessionLegacy = (
   intelligenceHUD,
   interviewTarget,
 });
+
+export interface QuillAgentOptions extends CreateAgentSessionOptions {
+  /** Optional telemetry / logging context */
+  telemetryContext?: Record<string, unknown>;
+}
+
+export class QuillAgent {
+  private session: Chat | null = null;
+
+  constructor(private readonly options: QuillAgentOptions) {}
+
+  /**
+   * Initializes the underlying Gemini Chat session.
+   * Must be called before sendMessage.
+   */
+  async initialize(): Promise<void> {
+    try {
+      this.session = await createAgentSession(this.options);
+    } catch (error) {
+      throw normalizeAIError(error, {
+        phase: "initialize",
+        source: "QuillAgent",
+        ...this.options.telemetryContext,
+      });
+    }
+  }
+
+  /**
+   * Thin wrapper over Chat.sendMessage that normalizes SDK errors
+   * into typed AIError instances.
+   */
+  async sendMessage(
+    payload: Parameters<Chat["sendMessage"]>[0]
+  ): Promise<Awaited<ReturnType<Chat["sendMessage"]>>> {
+    if (!this.session) {
+      throw new AIError(
+        "Agent session is not initialized. Call initialize() before sendMessage().",
+      );
+    }
+
+    try {
+      const result = await this.session.sendMessage(payload as any);
+      return result as Awaited<ReturnType<Chat["sendMessage"]>>;
+    } catch (error) {
+      throw normalizeAIError(error, {
+        phase: "sendMessage",
+        source: "QuillAgent",
+        ...this.options.telemetryContext,
+      });
+    }
+  }
+
+  /**
+   * Convenience helper for plain-text prompts.
+   */
+  async sendText(message: string): Promise<string> {
+    const result = await this.sendMessage({ message } as any);
+    // Result shape is the Gemini ChatResponse; prefer .text fallback.
+    return (result as any)?.text ?? "";
+  }
+}

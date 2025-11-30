@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEditor, useEngine, findQuoteRange, useManuscriptIntelligence } from '@/features/shared';
+import { useEngine, findQuoteRange, useManuscriptIntelligence } from '@/features/shared';
+import { useEditorState, useEditorActions } from '@/features/shared/context/EditorContext';
 import { useProjectStore } from '@/features/project';
 import { RichTextEditor } from './RichTextEditor';
 import { MagicBar } from './MagicBar';
@@ -55,22 +56,25 @@ const Icons = {
 };
 
 export const EditorWorkspace: React.FC = () => {
-  // Consume all data from contexts - no props needed
+  // Consume editor state and actions from split contexts
   const {
     currentText,
-    updateText,
-    setSelectionState,
     selectionRange,
     selectionPos,
     activeHighlight,
-    setEditor,
-    clearSelection,
     editor,
     isZenMode,
-    toggleZenMode,
     visibleComments,
+  } = useEditorState();
+
+  const {
+    updateText,
+    setSelectionState,
+    setEditor,
+    clearSelection,
+    toggleZenMode,
     dismissComment,
-  } = useEditor();
+  } = useEditorActions();
 
   const { getActiveChapter, currentProject } = useProjectStore();
   const { state: engineState, actions: engineActions } = useEngine();

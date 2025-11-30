@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
+import React, { createContext, useContext, useCallback, useState, useMemo } from 'react';
+
 import { useProjectStore } from '@/features/project';
 import { useDocumentHistory } from '@/features/editor/hooks/useDocumentHistory';
 import { useEditorSelection } from '@/features/editor/hooks/useEditorSelection';
@@ -81,7 +82,54 @@ export interface EditorContextValue {
   toggleZenMode: () => void;
 }
 
+type EditorStateContextValue = Pick<EditorContextValue,
+  | 'editor'
+  | 'currentText'
+  | 'history'
+  | 'redoStack'
+  | 'canUndo'
+  | 'canRedo'
+  | 'hasUnsavedChanges'
+  | 'selectionRange'
+  | 'selectionPos'
+  | 'cursorPosition'
+  | 'activeHighlight'
+  | 'branches'
+  | 'activeBranchId'
+  | 'isOnMain'
+  | 'inlineComments'
+  | 'visibleComments'
+  | 'isZenMode'
+>;
+
+type EditorActionsContextValue = Pick<EditorContextValue,
+  | 'setEditor'
+  | 'updateText'
+  | 'commit'
+  | 'loadDocument'
+  | 'undo'
+  | 'redo'
+  | 'restore'
+  | 'setSelection'
+  | 'setSelectionState'
+  | 'clearSelection'
+  | 'handleNavigateToIssue'
+  | 'scrollToPosition'
+  | 'getEditorContext'
+  | 'createBranch'
+  | 'switchBranch'
+  | 'mergeBranch'
+  | 'deleteBranch'
+  | 'renameBranch'
+  | 'setInlineComments'
+  | 'dismissComment'
+  | 'clearComments'
+  | 'toggleZenMode'
+>;
+
 const EditorContext = createContext<EditorContextValue | undefined>(undefined);
+const EditorStateContext = createContext<EditorStateContextValue | undefined>(undefined);
+const EditorActionsContext = createContext<EditorActionsContextValue | undefined>(undefined);
 
 export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { 
@@ -159,61 +207,113 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isZenMode, setIsZenMode] = useState(false);
   const toggleZenMode = useCallback(() => setIsZenMode(prev => !prev), []);
 
-  const value: EditorContextValue = {
-    // Editor Instance
+  const stateValue: EditorStateContextValue = useMemo(() => ({
     editor,
-    setEditor,
-    // Text & Content
     currentText,
-    updateText,
-    commit,
-    loadDocument,
-    // History (Undo/Redo)
     history,
     redoStack,
-    undo,
-    redo,
     canUndo,
     canRedo,
-    restore,
     hasUnsavedChanges,
-    // Selection & Cursor
     selectionRange,
     selectionPos,
     cursorPosition,
-    setSelection,
-    setSelectionState,
-    clearSelection,
-    // Navigation & Highlighting
     activeHighlight,
-    handleNavigateToIssue,
-    scrollToPosition,
-    // Computed Context
-    getEditorContext,
-    // Branching
     branches,
     activeBranchId,
     isOnMain,
+    inlineComments,
+    visibleComments,
+    isZenMode,
+  }), [
+    editor,
+    currentText,
+    history,
+    redoStack,
+    canUndo,
+    canRedo,
+    hasUnsavedChanges,
+    selectionRange,
+    selectionPos,
+    cursorPosition,
+    activeHighlight,
+    branches,
+    activeBranchId,
+    isOnMain,
+    inlineComments,
+    visibleComments,
+    isZenMode,
+  ]);
+
+  const setEditorStable = useCallback((next: Editor | null) => setEditor(next), []);
+  const updateTextStable = useCallback((text: string) => updateText(text), [updateText]);
+  const commitStable = useCallback((text: string, description: string, author: 'User' | 'Agent') => commit(text, description, author), [commit]);
+  const loadDocumentStable = useCallback((text: string) => loadDocument(text), [loadDocument]);
+  const undoStable = useCallback(() => undo(), [undo]);
+  const redoStable = useCallback(() => redo(), [redo]);
+  const restoreStable = useCallback((id: string) => restore(id), [restore]);
+
+  const actionsValue: EditorActionsContextValue = useMemo(() => ({
+    setEditor: setEditorStable,
+    updateText: updateTextStable,
+    commit: commitStable,
+    loadDocument: loadDocumentStable,
+    undo: undoStable,
+    redo: redoStable,
+    restore: restoreStable,
+    setSelection,
+    setSelectionState,
+    clearSelection,
+    handleNavigateToIssue,
+    scrollToPosition,
+    getEditorContext,
     createBranch,
     switchBranch,
     mergeBranch,
     deleteBranch,
     renameBranch,
-    // Inline Comments
-    inlineComments,
-    visibleComments,
     setInlineComments,
     dismissComment,
     clearComments,
-    // Zen Mode
-    isZenMode,
     toggleZenMode,
-  };
+  }), [
+    setEditorStable,
+    updateTextStable,
+    commitStable,
+    loadDocumentStable,
+    undoStable,
+    redoStable,
+    restoreStable,
+    setSelection,
+    setSelectionState,
+    clearSelection,
+    handleNavigateToIssue,
+    scrollToPosition,
+    getEditorContext,
+    createBranch,
+    switchBranch,
+    mergeBranch,
+    deleteBranch,
+    renameBranch,
+    setInlineComments,
+    dismissComment,
+    clearComments,
+    toggleZenMode,
+  ]);
+
+  const value: EditorContextValue = useMemo(() => ({
+    ...stateValue,
+    ...actionsValue,
+  }), [stateValue, actionsValue]);
 
   return (
-    <EditorContext.Provider value={value}>
-      {children}
-    </EditorContext.Provider>
+    <EditorStateContext.Provider value={stateValue}>
+      <EditorActionsContext.Provider value={actionsValue}>
+        <EditorContext.Provider value={value}>
+          {children}
+        </EditorContext.Provider>
+      </EditorActionsContext.Provider>
+    </EditorStateContext.Provider>
   );
 };
 
@@ -221,6 +321,22 @@ export const useEditor = () => {
   const context = useContext(EditorContext);
   if (!context) {
     throw new Error('useEditor must be used within an EditorProvider');
+  }
+  return context;
+};
+
+export const useEditorState = () => {
+  const context = useContext(EditorStateContext);
+  if (!context) {
+    throw new Error('useEditorState must be used within an EditorProvider');
+  }
+  return context;
+};
+
+export const useEditorActions = () => {
+  const context = useContext(EditorActionsContext);
+  if (!context) {
+    throw new Error('useEditorActions must be used within an EditorProvider');
   }
   return context;
 };

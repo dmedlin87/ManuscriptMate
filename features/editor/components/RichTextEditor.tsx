@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
@@ -13,10 +14,10 @@ const ANALYSIS_PLUGIN_KEY = new PluginKey('analysis-decorations');
 const COMMENT_PLUGIN_KEY = new PluginKey('comment-decorations');
 
 interface HighlightItem {
-    start: number;
-    end: number;
-    color: string;
-    title?: string;
+  start: number;
+  end: number;
+  color: string;
+  title?: string;
 }
 
 interface RichTextEditorProps {
@@ -35,7 +36,7 @@ interface RichTextEditorProps {
   isZenMode?: boolean;
 }
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
+const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({ 
   content, 
   onUpdate, 
   onSelectionChange, 
@@ -254,3 +255,5 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     </div>
   );
 };
+
+export const RichTextEditor = React.memo(RichTextEditorComponent);
