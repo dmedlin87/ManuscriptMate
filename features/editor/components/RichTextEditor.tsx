@@ -218,8 +218,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const state = editor.state;
     const plugins = state.plugins
       .filter(p => {
-        const key = p.spec.key as PluginKey | undefined;
-        return key !== ANALYSIS_PLUGIN_KEY && key !== COMMENT_PLUGIN_KEY;
+        const keyObj = p.spec.key as PluginKey | undefined;
+        const keyName = (keyObj as any)?.key ?? (p as any)?.key;
+        return keyName !== 'analysis-decorations' && keyName !== 'comment-decorations';
       })
       .concat([AnalysisDecorations, CommentDecorations]);
 
