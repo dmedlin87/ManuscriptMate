@@ -11,13 +11,15 @@ const createUsage = (overrides: Partial<UsageMetadata> = {}): UsageMetadata => (
 });
 
 const UsageConsumer = () => {
-  const { promptTokens, responseTokens, totalRequestCount, trackUsage, resetUsage } = useUsage();
+  const { promptTokens, responseTokens, totalRequestCount, totalCost, sessionCost, trackUsage, resetUsage } = useUsage();
   return (
     <div>
       <span data-testid="prompt-tokens">{promptTokens}</span>
       <span data-testid="response-tokens">{responseTokens}</span>
       <span data-testid="request-count">{totalRequestCount}</span>
-      <button data-testid="track" onClick={() => trackUsage(createUsage({ promptTokenCount: 5, totalTokenCount: 9 }))}>Track</button>
+      <span data-testid="total-cost">{totalCost}</span>
+      <span data-testid="session-cost">{sessionCost}</span>
+      <button data-testid="track" onClick={() => trackUsage(createUsage({ promptTokenCount: 5, totalTokenCount: 9 }), 'gemini-2.5-flash')}>Track</button>
       <button data-testid="reset" onClick={resetUsage}>Reset</button>
     </div>
   );
@@ -67,6 +69,7 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('10');
       expect(screen.getByTestId('response-tokens')).toHaveTextContent('20');
       expect(screen.getByTestId('request-count')).toHaveTextContent('3');
+      expect(screen.getByTestId('total-cost')).toHaveTextContent('0');
     });
 
     expect(getItemSpy).toHaveBeenCalledWith('quillai_usage');
@@ -85,12 +88,16 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('5');
       expect(screen.getByTestId('response-tokens')).toHaveTextContent('4');
       expect(screen.getByTestId('request-count')).toHaveTextContent('1');
+      expect(screen.getByTestId('session-cost')).not.toHaveTextContent('0');
     });
 
-    expect(setItemSpy).toHaveBeenLastCalledWith(
-      'quillai_usage',
-      JSON.stringify({ prompt: 5, response: 4, requests: 1 })
-    );
+    const lastCall = setItemSpy.mock.lastCall;
+    expect(lastCall?.[0]).toBe('quillai_usage');
+    const payload = JSON.parse(lastCall?.[1] as string);
+    expect(payload.prompt).toBe(5);
+    expect(payload.response).toBe(4);
+    expect(payload.requests).toBe(1);
+    expect(typeof payload.cost).toBe('number');
   });
 
   it('resets usage counters', async () => {
@@ -112,6 +119,33 @@ describe('UsageContext', () => {
       expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('0');
       expect(screen.getByTestId('response-tokens')).toHaveTextContent('0');
       expect(screen.getByTestId('request-count')).toHaveTextContent('0');
+      expect(screen.getByTestId('session-cost')).toHaveTextContent('0');
+    });
+  });
+
+  it('loads sessionCost from storage and resets it', async () => {
+    storage['quillai_usage'] = JSON.stringify({ prompt: 10, response: 20, requests: 3, sessionCost: 10 });
+
+    render(
+      <UsageProvider>
+        <UsageConsumer />
+      </UsageProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('10');
+      expect(screen.getByTestId('response-tokens')).toHaveTextContent('20');
+      expect(screen.getByTestId('request-count')).toHaveTextContent('3');
+      expect(screen.getByTestId('session-cost')).toHaveTextContent('10');
+    });
+
+    fireEvent.click(screen.getByTestId('reset'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('prompt-tokens')).toHaveTextContent('0');
+      expect(screen.getByTestId('response-tokens')).toHaveTextContent('0');
+      expect(screen.getByTestId('request-count')).toHaveTextContent('0');
+      expect(screen.getByTestId('session-cost')).toHaveTextContent('0');
     });
   });
 });

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { rewriteText, getContextualHelp } from '@/services/gemini/agent';
 import { useUsage } from '@/features/shared';
+import { ModelConfig } from '@/config/models';
 
 interface SelectionRange {
   start: number;
@@ -77,7 +78,7 @@ export function useMagicEditor({
         projectSetting,
         signal
       );
-      trackUsage(usage);
+      trackUsage(usage, ModelConfig.agent);
       
       if (signal.aborted) return;
       
@@ -109,7 +110,7 @@ export function useMagicEditor({
 
     try {
       const { result, usage } = await getContextualHelp(selectionRange.text, type, signal);
-      trackUsage(usage);
+      trackUsage(usage, ModelConfig.agent);
       
       if (signal.aborted) return;
       

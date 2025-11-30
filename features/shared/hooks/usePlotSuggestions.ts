@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { generatePlotIdeas } from '@/services/gemini/analysis';
 import { PlotSuggestion } from '@/types';
 import { useUsage } from '../context/UsageContext';
+import { ModelConfig } from '@/config/models';
 
 export function usePlotSuggestions(currentText: string) {
   const [suggestions, setSuggestions] = useState<PlotSuggestion[]>([]);
@@ -23,7 +24,7 @@ export function usePlotSuggestions(currentText: string) {
 
     try {
       const { result: ideas, usage } = await generatePlotIdeas(currentText, query, type);
-      trackUsage(usage);
+      trackUsage(usage, ModelConfig.analysis);
       
       // Only update state if this is still the most recent request
       if (requestId === requestIdRef.current) {

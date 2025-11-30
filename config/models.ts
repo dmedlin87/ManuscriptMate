@@ -17,6 +17,8 @@ interface ModelDefinition {
   costTier?: 'cheap' | 'balanced' | 'premium';
   latencyTier?: 'fast' | 'medium' | 'slow';
   defaultThinkingBudget?: number;
+  inputPrice?: number;
+  outputPrice?: number;
 }
 
 type ModelBuildKey = 'default' | 'cheap' | 'deepThinking';
@@ -37,6 +39,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       costTier: 'balanced',
       latencyTier: 'medium',
       defaultThinkingBudget: 32768,
+      inputPrice: 1.25,
+      outputPrice: 5.0,
     },
     agent: {
       id: 'gemini-2.5-flash',
@@ -44,6 +48,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       role: 'agent',
       costTier: 'cheap',
       latencyTier: 'fast',
+      inputPrice: 0.075,
+      outputPrice: 0.3,
     },
     tts: {
       id: 'gemini-2.5-flash-preview-tts',
@@ -67,6 +73,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       role: 'tools',
       costTier: 'cheap',
       latencyTier: 'fast',
+      inputPrice: 0.075,
+      outputPrice: 0.3,
     },
   },
   cheap: {
@@ -78,6 +86,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       costTier: 'cheap',
       latencyTier: 'fast',
       defaultThinkingBudget: 16384,
+      inputPrice: 0.075,
+      outputPrice: 0.3,
     },
     agent: {
       id: 'gemini-2.5-flash',
@@ -108,6 +118,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       role: 'tools',
       costTier: 'cheap',
       latencyTier: 'fast',
+      inputPrice: 0.075,
+      outputPrice: 0.3,
     },
   },
   deepThinking: {
@@ -119,6 +131,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       costTier: 'premium',
       latencyTier: 'slow',
       defaultThinkingBudget: 65536,
+      inputPrice: 1.25,
+      outputPrice: 5.0,
     },
     agent: {
       id: 'gemini-3-pro-preview',
@@ -127,6 +141,8 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       maxTokens: 1_000_000,
       costTier: 'premium',
       latencyTier: 'medium',
+      inputPrice: 1.25,
+      outputPrice: 5.0,
     },
     tts: {
       id: 'gemini-2.5-flash-preview-tts',
@@ -151,8 +167,37 @@ export const ModelBuilds: Record<ModelBuildKey, ModelBuild> = {
       maxTokens: 1_000_000,
       costTier: 'premium',
       latencyTier: 'medium',
+      inputPrice: 1.25,
+      outputPrice: 5.0,
     },
   },
+};
+
+export const ModelPricing: Record<string, { inputPrice: number; outputPrice: number }> = {};
+
+for (const build of Object.values(ModelBuilds)) {
+  for (const def of Object.values(build)) {
+    if (
+      typeof def.inputPrice === 'number' &&
+      typeof def.outputPrice === 'number'
+    ) {
+      ModelPricing[def.id] = {
+        inputPrice: def.inputPrice,
+        outputPrice: def.outputPrice,
+      };
+    }
+  }
+}
+
+// Fallback pricing for legacy or external model IDs not represented in ModelBuilds
+if (!ModelPricing['gemini-1.5-pro']) {
+  ModelPricing['gemini-1.5-pro'] = { inputPrice: 1.25, outputPrice: 5.0 };
+}
+
+export const getModelPricing = (
+  modelId: string
+): { inputPrice: number; outputPrice: number } | null => {
+  return ModelPricing[modelId] ?? null;
 };
 
 const ACTIVE_BUILD_KEY: ModelBuildKey =

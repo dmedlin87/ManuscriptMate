@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ModelConfig, TokenLimits, ThinkingBudgets } from '@/config/models';
+import { ModelConfig, TokenLimits, ThinkingBudgets, getModelPricing, ModelPricing } from '@/config/models';
 
 describe('ModelConfig', () => {
   it('has analysis model defined', () => {
@@ -114,5 +114,27 @@ describe('ThinkingBudgets', () => {
       expect(Number.isFinite(value)).toBe(true);
       expect(value).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('ModelPricing and getModelPricing', () => {
+  it('provides pricing for primary text models', () => {
+    const analysisPricing = getModelPricing(ModelConfig.analysis);
+    const agentPricing = getModelPricing(ModelConfig.agent);
+    const toolsPricing = getModelPricing(ModelConfig.tools);
+
+    expect(analysisPricing).not.toBeNull();
+    expect(agentPricing).not.toBeNull();
+    expect(toolsPricing).not.toBeNull();
+  });
+
+  it('contains entries for all priced models in ModelBuilds', () => {
+    // At minimum we expect entries for the main text models we price
+    expect(ModelPricing['gemini-3-pro-preview']).toBeDefined();
+    expect(ModelPricing['gemini-2.5-flash']).toBeDefined();
+  });
+
+  it('returns null for unknown model ids', () => {
+    expect(getModelPricing('unknown-model-id')).toBeNull();
   });
 });

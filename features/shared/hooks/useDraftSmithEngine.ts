@@ -3,6 +3,7 @@ import { analyzeDraft } from '@/services/gemini/analysis';
 import { AnalysisResult } from '@/types';
 import { Lore, ManuscriptIndex } from '@/types/schema';
 import { useUsage } from '../context/UsageContext';
+import { ModelConfig } from '@/config/models';
 import { useMagicEditor } from '@/features/editor/hooks/useMagicEditor';
 import { isMemoryTool, executeMemoryTool } from '@/services/gemini/memoryToolHandlers';
 
@@ -115,7 +116,7 @@ export function useQuillAIEngine({
     
     try {
       const { result, usage, warning } = await analyzeDraft(text, projectSetting, manuscriptIndex, signal);
-      trackUsage(usage);
+      trackUsage(usage, ModelConfig.analysis);
       
       if (signal.aborted) return;
       setAnalysisWarning(warning || null);
