@@ -38,7 +38,6 @@ export default defineConfig(({ mode }) => {
           threads: {
             maxThreads: 1,
             minThreads: 1,
-            execArgv: ['--max-old-space-size=4096'],
           },
         },
         reporters: ['default', 'json'],
