@@ -27,9 +27,13 @@ export default defineConfig(({ mode }) => {
         pool: 'forks',
         poolOptions: {
           forks: {
-            singleFork: true,
+            singleFork: false,
+            minForks: 1,
+            maxForks: 2,
+            execArgv: ['--max-old-space-size=4096'],
           },
         },
+        maxConcurrency: 5,
         setupFiles: ['./tests/setup.ts'],
         include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
         coverage: {

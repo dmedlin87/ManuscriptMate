@@ -97,20 +97,40 @@ Flow (matches the **Coverage Regression Checking** codemap):
 
 ### CI Workflow (GitHub Actions)
 
-Flow (matches the **CI Workflow Orchestration** codemap; see [.github/workflows/tests.yml](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/.github/workflows/tests.yml:0:0-0:0)):
+Flow (see [.github/workflows/tests.yml](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/.github/workflows/tests.yml:0:0-0:0)):
 
 1. **Test execution phase**  
    - `npm run test:coverage` (with `CI=true`).
-2. **Documentation validation phase**  
+2. **Quality enforcement phase**  
+   - `npm run test:regression` – block coverage regressions > 2 points.
+3. **Documentation validation phase**  
    - `npm run test:docs` – coverage docs are recent vs HEAD commit date.  
    - `npm run test:docs:strict` – coverage docs match committed generator output.
-3. **Report generation phase**  
-   - `npm run test:status` – write [docs/TEST_COVERAGE.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_COVERAGE.md:0:0-0:0) + update `coverage/history.json`.  
-   - `npm run test:audit` – write [docs/TEST_AUDIT.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_AUDIT.md:0:0-0:0).
-4. **Quality enforcement phase**  
-   - `npm run test:regression` – block coverage regressions > 2 points.
-5. **Coverage report on PRs**  
+4. **Coverage report on PRs**  
    - `davelosert/vitest-coverage-report-action@v2` posts coverage details as a PR comment.
+
+> **Note:** CI does **not** regenerate docs. Doc generation (`test:status`, `test:audit`) is a **local** responsibility. See [Contributing Workflow](#contributing-workflow) below.
+
+### Contributing Workflow
+
+Coverage docs (`TEST_COVERAGE.md`, `TEST_AUDIT.md`) are **committed artifacts**. When your PR changes coverage:
+
+```bash
+# 1. Run the full test suite with doc generation
+npm run test:full
+
+# 2. Commit the updated docs alongside your code changes
+git add docs/TEST_COVERAGE.md docs/TEST_AUDIT.md
+git commit -m "Update coverage docs"
+```
+
+CI will **fail** if:
+
+- Docs are missing or malformed
+- Docs are stale (> 2 days older than HEAD commit)
+- Docs don't match what the generators would produce
+
+This ensures the repository always has accurate, up-to-date coverage documentation.
 
 ---
 

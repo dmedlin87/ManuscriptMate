@@ -29,6 +29,7 @@ interface ProjectState {
   updateManuscriptIndex: (projectId: string, index: ManuscriptIndex) => Promise<void>;
   deleteChapter: (chapterId: string) => Promise<void>;
   
+  flushPendingWrites: () => Promise<void>;
   getActiveChapter: () => Chapter | undefined;
 }
 
@@ -48,6 +49,32 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     }
   };
 
+  const persistChapter = async (chapterId: string, resolveFn?: () => void) => {
+    try {
+      const latest = latestChapterContent.get(chapterId);
+      if (!latest) return;
+
+      const chapter = await db.chapters.get(chapterId);
+      const projectId = chapter?.projectId;
+
+      if (!chapter || !projectId) {
+        // Fallback: still persist chapter content if we can't resolve project
+        await db.chapters.update(chapterId, { content: latest.content, updatedAt: latest.updatedAt });
+      } else {
+        await runProjectChapterTransaction(async () => {
+          await db.chapters.update(chapterId, { content: latest.content, updatedAt: latest.updatedAt });
+          await db.projects.update(projectId, { updatedAt: latest.updatedAt });
+        });
+      }
+    } catch (error) {
+      console.error('[ProjectStore] Failed to persist chapter content', error);
+    } finally {
+      latestChapterContent.delete(chapterId);
+      pendingChapterWrites.delete(chapterId);
+      resolveFn?.();
+    }
+  };
+
   const scheduleChapterPersist = (chapterId: string, payload: { content: string; updatedAt: number }) => {
     latestChapterContent.set(chapterId, payload);
 
@@ -61,34 +88,24 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       resolveFn = resolve;
     });
 
-    const timer = setTimeout(async () => {
-      try {
-        const latest = latestChapterContent.get(chapterId);
-        if (!latest) return;
-
-        const chapter = await db.chapters.get(chapterId);
-        const projectId = chapter?.projectId;
-
-        if (!chapter || !projectId) {
-          // Fallback: still persist chapter content if we can't resolve project
-          await db.chapters.update(chapterId, { content: latest.content, updatedAt: latest.updatedAt });
-        } else {
-          await runProjectChapterTransaction(async () => {
-            await db.chapters.update(chapterId, { content: latest.content, updatedAt: latest.updatedAt });
-            await db.projects.update(projectId, { updatedAt: latest.updatedAt });
-          });
-        }
-      } catch (error) {
-        console.error('[ProjectStore] Failed to persist chapter content', error);
-      } finally {
-        latestChapterContent.delete(chapterId);
-        pendingChapterWrites.delete(chapterId);
-        resolveFn?.();
-      }
+    const timer = setTimeout(() => {
+      void persistChapter(chapterId, resolveFn);
     }, WRITE_DEBOUNCE_MS);
 
     pendingChapterWrites.set(chapterId, { timer, promise, resolve: resolveFn });
     return promise;
+  };
+
+  const flushAllPendingWrites = async (): Promise<void> => {
+    const entries = Array.from(pendingChapterWrites.entries());
+    if (entries.length === 0) return;
+
+    await Promise.all(
+      entries.map(([chapterId, entry]) => {
+        clearTimeout(entry.timer);
+        return persistChapter(chapterId, entry.resolve);
+      }),
+    );
   };
 
   return {
@@ -207,6 +224,10 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         activeChapterId: activeId,
         isLoading: false
     });
+  },
+
+  flushPendingWrites: async () => {
+    await flushAllPendingWrites();
   },
 
   createChapter: async (title) => {

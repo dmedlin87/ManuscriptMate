@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+
+// Unmock stores since integration tests need real implementations
+vi.unmock('@/features/project/store/useProjectStore');
+vi.unmock('@/features/core/context/EditorContext');
+
 import { useAgentService } from '@/features/agent/hooks/useAgentService';
 import { useProjectStore } from '@/features/project/store/useProjectStore';
 import type { EditorContext } from '@/types';

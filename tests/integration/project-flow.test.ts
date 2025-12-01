@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Unmock stores since integration tests need real implementations
+vi.unmock('@/features/project/store/useProjectStore');
+
 import { useProjectStore } from '@/features/project/store/useProjectStore';
 
 vi.mock('@/services/manuscriptIndexer', () => ({
