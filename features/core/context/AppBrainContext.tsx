@@ -24,6 +24,14 @@ import {
   emitChapterSwitched,
   createContextBuilder,
 } from '@/services/appBrain';
+import {
+  NavigateToTextCommand,
+  JumpToChapterCommand,
+  JumpToSceneCommand,
+} from '@/services/commands/navigation';
+import { UpdateManuscriptCommand, AppendTextCommand } from '@/services/commands/editing';
+import { GetCritiqueCommand, RunAnalysisCommand } from '@/services/commands/analysis';
+import { QueryLoreCommand, GetCharacterInfoCommand } from '@/services/commands/knowledge';
 // Types imported from @/types as needed
 import { rewriteText } from '@/services/gemini/agent';
 
@@ -177,117 +185,48 @@ export const AppBrainProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const actions = useMemo<AppBrainActions>(() => ({
     // Navigation
     navigateToText: async (params: NavigateToTextParams) => {
-      const { query, searchType = 'fuzzy', character, chapter } = params;
-      
-      // Get text to search
-      let searchText = editor.currentText;
-      let targetChapterId = projectStore.activeChapterId;
-      
-      // If specific chapter requested, find it
-      if (chapter) {
-        const targetChapter = projectStore.chapters.find(
-          c => c.title.toLowerCase().includes(chapter.toLowerCase()) ||
-               c.order.toString() === chapter
-        );
-        if (targetChapter) {
-          searchText = targetChapter.content;
-          targetChapterId = targetChapter.id;
-        }
-      }
-      
-      // Search based on type
-      let foundIndex = -1;
-      const lowerQuery = query.toLowerCase();
-      
-      if (searchType === 'exact') {
-        foundIndex = searchText.indexOf(query);
-      } else if (searchType === 'dialogue' && character) {
-        // Search for character dialogue
-        const dialoguePattern = new RegExp(
-          `[""]([^""]*${query}[^""]*)[""]\\s*(?:said|replied|asked|whispered|shouted)?\\s*${character}|` +
-          `${character}\\s*(?:said|replied|asked|whispered|shouted)?\\s*[""]([^""]*${query}[^""]*)[""]`,
-          'i'
-        );
-        const match = searchText.match(dialoguePattern);
-        if (match) {
-          foundIndex = match.index || -1;
-        }
-      } else if (searchType === 'character_mention' && character) {
-        // Find character mentions
-        const mentionPattern = new RegExp(character, 'gi');
-        const match = mentionPattern.exec(searchText);
-        if (match) {
-          foundIndex = match.index;
-        }
-      } else {
-        // Fuzzy search - find case-insensitive
-        foundIndex = searchText.toLowerCase().indexOf(lowerQuery);
-      }
-      
-      if (foundIndex === -1) {
-        return `Could not find "${query}" in the manuscript.`;
-      }
-      
-      // Switch chapter if needed
-      if (targetChapterId !== projectStore.activeChapterId) {
-        projectStore.selectChapter(targetChapterId!);
-      }
-      
-      // Navigate to the found text
-      const endIndex = foundIndex + query.length;
-      editor.handleNavigateToIssue(foundIndex, endIndex);
-      
-      const context = searchText.substring(
-        Math.max(0, foundIndex - 30),
-        Math.min(searchText.length, foundIndex + query.length + 30)
-      );
-      
-      return `Found at position ${foundIndex}. Context: "...${context}..."`;
+      const command = new NavigateToTextCommand();
+      return command.execute(params, {
+        currentText: editor.currentText,
+        activeChapterId: projectStore.activeChapterId,
+        chapters: projectStore.chapters,
+        selectChapter: projectStore.selectChapter,
+        cursorPosition: editor.cursorPosition,
+        scrollToPosition: editor.scrollToPosition,
+        navigateToRange: editor.handleNavigateToIssue,
+        intelligence,
+      });
     },
     
     jumpToChapter: async (identifier: string) => {
-      const chapter = projectStore.chapters.find(
-        c => c.title.toLowerCase().includes(identifier.toLowerCase()) ||
-             (c.order + 1).toString() === identifier ||
-             c.order.toString() === identifier
-      );
-      
-      if (!chapter) {
-        return `Could not find chapter "${identifier}". Available: ${projectStore.chapters.map(c => c.title).join(', ')}`;
-      }
-      
-      projectStore.selectChapter(chapter.id);
-      return `Switched to "${chapter.title}"`;
+      const command = new JumpToChapterCommand();
+      return command.execute(identifier, {
+        currentText: editor.currentText,
+        activeChapterId: projectStore.activeChapterId,
+        chapters: projectStore.chapters,
+        selectChapter: projectStore.selectChapter,
+        cursorPosition: editor.cursorPosition,
+        scrollToPosition: editor.scrollToPosition,
+        navigateToRange: editor.handleNavigateToIssue,
+        intelligence,
+      });
     },
     
     jumpToScene: async (sceneType: string, direction: 'next' | 'previous') => {
-      if (!intelligence?.structural?.scenes) {
-        return 'No scene data available. Try running analysis first.';
-      }
-      
-      const scenes = intelligence.structural.scenes;
-      const cursorPos = editor.cursorPosition;
-      
-      let targetScene;
-      if (direction === 'next') {
-        targetScene = scenes.find(s => 
-          s.startOffset > cursorPos && 
-          (sceneType === 'any' || s.type === sceneType)
-        );
-      } else {
-        const candidates = scenes.filter(s => 
-          s.endOffset < cursorPos && 
-          (sceneType === 'any' || s.type === sceneType)
-        );
-        targetScene = candidates[candidates.length - 1];
-      }
-      
-      if (!targetScene) {
-        return `No ${direction} ${sceneType} scene found.`;
-      }
-      
-      editor.scrollToPosition(targetScene.startOffset);
-      return `Jumped to ${targetScene.type} scene at position ${targetScene.startOffset}`;
+      const command = new JumpToSceneCommand();
+      return command.execute(
+        { sceneType, direction },
+        {
+          currentText: editor.currentText,
+          activeChapterId: projectStore.activeChapterId,
+          chapters: projectStore.chapters,
+          selectChapter: projectStore.selectChapter,
+          cursorPosition: editor.cursorPosition,
+          scrollToPosition: editor.scrollToPosition,
+          navigateToRange: editor.handleNavigateToIssue,
+          intelligence,
+        },
+      );
     },
     
     scrollToPosition: (position: number) => {
@@ -296,25 +235,20 @@ export const AppBrainProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Editing
     updateManuscript: async (params: UpdateManuscriptParams) => {
-      return runExclusiveEdit(async () => {
-        const { searchText, replacementText, description } = params;
-        
-        if (!editor.currentText.includes(searchText)) {
-          return `Error: Could not find "${searchText.slice(0, 50)}..." in the document.`;
-        }
-        
-        const newText = editor.currentText.replace(searchText, replacementText);
-        editor.commit(newText, description, 'Agent');
-        
-        return `Successfully updated: ${description}`;
+      const command = new UpdateManuscriptCommand();
+      return command.execute(params, {
+        currentText: editor.currentText,
+        commitEdit: editor.commit,
+        runExclusiveEdit,
       });
     },
     
     appendText: async (text: string, description: string) => {
-      return runExclusiveEdit(async () => {
-        const newText = editor.currentText + '\n\n' + text;
-        editor.commit(newText, description, 'Agent');
-        return `Appended text: ${description}`;
+      const command = new AppendTextCommand();
+      return command.execute({ text, description }, {
+        currentText: editor.currentText,
+        commitEdit: editor.commit,
+        runExclusiveEdit,
       });
     },
     
@@ -334,37 +268,33 @@ export const AppBrainProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Analysis
     getCritiqueForSelection: async (focus?: string) => {
-      const selection = editor.selectionRange;
-      if (!selection) {
-        return 'No text selected. Please select text to critique.';
-      }
-      
-      // This would call the actual critique service
-      return `Critique for: "${selection.text.slice(0, 50)}..." [Focus: ${focus || 'all'}]
-      
-To get detailed feedback, the selection would be sent to the analysis service.`;
+      const command = new GetCritiqueCommand();
+      return command.execute(focus, {
+        selection: editor.selectionRange,
+        currentText: editor.currentText,
+        setting: projectStore.currentProject?.setting,
+        manuscriptIndex: projectStore.currentProject?.manuscriptIndex,
+        analyzePacing: analysisCtx.analyzePacing,
+        analyzeCharacters: analysisCtx.analyzeCharacters,
+        analyzePlot: analysisCtx.analyzePlot,
+        analyzeSetting: analysisCtx.analyzeSetting,
+        runFullAnalysis: analysisCtx.runFullAnalysis,
+      });
     },
     
     runAnalysis: async (section?: string) => {
-      const text = editor.currentText;
-      const setting = projectStore.currentProject?.setting;
-      
-      if (section === 'pacing') {
-        await analysisCtx.analyzePacing(text, setting);
-        return 'Pacing analysis complete';
-      } else if (section === 'characters') {
-        await analysisCtx.analyzeCharacters(text);
-        return 'Character analysis complete';
-      } else if (section === 'plot') {
-        await analysisCtx.analyzePlot(text);
-        return 'Plot analysis complete';
-      } else if (section === 'setting' && setting) {
-        await analysisCtx.analyzeSetting(text, setting);
-        return 'Setting analysis complete';
-      } else {
-        await analysisCtx.runFullAnalysis(text, setting);
-        return 'Full analysis complete';
-      }
+      const command = new RunAnalysisCommand();
+      return command.execute(section, {
+        selection: editor.selectionRange,
+        currentText: editor.currentText,
+        setting: projectStore.currentProject?.setting,
+        manuscriptIndex: projectStore.currentProject?.manuscriptIndex,
+        analyzePacing: analysisCtx.analyzePacing,
+        analyzeCharacters: analysisCtx.analyzeCharacters,
+        analyzePlot: analysisCtx.analyzePlot,
+        analyzeSetting: analysisCtx.analyzeSetting,
+        runFullAnalysis: analysisCtx.runFullAnalysis,
+      });
     },
     
     // UI Control
@@ -383,66 +313,17 @@ To get detailed feedback, the selection would be sent to the analysis service.`;
     
     // Knowledge
     queryLore: async (query: string) => {
-      const lore = projectStore.currentProject?.lore;
-      if (!lore) {
-        return 'No lore data available for this project.';
-      }
-      
-      const lowerQuery = query.toLowerCase();
-      
-      // Search characters
-      const matchingChars = lore.characters.filter(c => 
-        c.name.toLowerCase().includes(lowerQuery) ||
-        c.bio?.toLowerCase().includes(lowerQuery) ||
-        c.arc?.toLowerCase().includes(lowerQuery)
-      );
-      
-      // Search world rules
-      const matchingRules = lore.worldRules.filter(r =>
-        r.toLowerCase().includes(lowerQuery)
-      );
-      
-      let result = '';
-      if (matchingChars.length > 0) {
-        result += 'Characters:\n';
-        matchingChars.forEach(c => {
-          result += `• ${c.name}: ${c.bio?.slice(0, 100) || 'No bio'}...\n`;
-        });
-      }
-      if (matchingRules.length > 0) {
-        result += '\nWorld Rules:\n';
-        matchingRules.forEach(r => {
-          result += `• ${r}\n`;
-        });
-      }
-      
-      return result || `No lore found matching "${query}"`;
+      const command = new QueryLoreCommand();
+      return command.execute(query, {
+        lore: projectStore.currentProject?.lore,
+      });
     },
     
     getCharacterInfo: async (name: string) => {
-      const lore = projectStore.currentProject?.lore;
-      const char = lore?.characters.find(c => 
-        c.name.toLowerCase() === name.toLowerCase()
-      );
-      
-      if (!char) {
-        return `Character "${name}" not found in lore.`;
-      }
-      
-      let info = `**${char.name}**\n\n`;
-      if (char.bio) info += `Bio: ${char.bio}\n\n`;
-      if (char.arc) info += `Arc: ${char.arc}\n\n`;
-      if (char.relationships && char.relationships.length > 0) {
-        info += `Relationships: ${char.relationships.join(', ')}\n\n`;
-      }
-      if (char.inconsistencies && char.inconsistencies.length > 0) {
-        info += `⚠️ Inconsistencies:\n`;
-        char.inconsistencies.forEach(i => {
-          info += `• ${i.issue}\n`;
-        });
-      }
-      
-      return info;
+      const command = new GetCharacterInfoCommand();
+      return command.execute(name, {
+        lore: projectStore.currentProject?.lore,
+      });
     },
     
     getTimelineContext: async (range: 'before' | 'after' | 'nearby') => {

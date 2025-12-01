@@ -1,7 +1,7 @@
 import React from 'react';
 import { AnalysisResult } from '@/types';
 import { AnalysisPanel } from './AnalysisPanel';
-import { useEditorActions } from '@/features/shared/context/EditorContext';
+import { useEditorActions } from '@/features/core/context/EditorContext';
 
 interface DashboardProps {
     isLoading: boolean;

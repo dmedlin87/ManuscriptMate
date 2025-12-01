@@ -24,6 +24,39 @@ for (const store of stores) {
   }
 }
 
+// Lightweight global mock for @google/genai to avoid heavy SDK initialization in tests
+// Individual test files can override this mock with vi.mock('@google/genai', ...) as needed.
+vi.mock('@google/genai', () => {
+  const Type = {
+    OBJECT: 'OBJECT',
+    ARRAY: 'ARRAY',
+    STRING: 'STRING',
+    NUMBER: 'NUMBER',
+    BOOLEAN: 'BOOLEAN',
+  } as const;
+
+  class GoogleGenAI {
+    models = {
+      generateContent: async () => ({ text: '', usageMetadata: undefined }),
+    };
+
+    chats = {
+      create: () => ({
+        sendMessage: async () => ({ text: '', usageMetadata: undefined }),
+      }),
+    };
+
+    live = {
+      connect: async () => ({
+        sendRealtimeInput: () => {},
+        close: () => {},
+      }),
+    };
+  }
+
+  return { GoogleGenAI, Type };
+});
+
 // Global Dexie/IndexedDB mock: replace @/services/db with an in-memory implementation
 vi.mock('@/services/db', () => {
   type WithId = { id: string };

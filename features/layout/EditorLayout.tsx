@@ -7,7 +7,7 @@ import { ChatInterface, ActivityFeed } from '@/features/agent';
 import { VoiceMode } from '@/features/voice';
 import { MagicBar, FindReplaceModal, VisualDiff, RichTextEditor } from '@/features/editor';
 import { findQuoteRange, useEditor, useEngine } from '@/features/shared';
-import { useAppBrainState } from '@/features/shared/context/AppBrainContext';
+import { useAppBrainState } from '@/features/core/context/AppBrainContext';
 
 /**
  * EditorLayout
