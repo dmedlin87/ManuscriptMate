@@ -5,8 +5,10 @@ import {
   buildCompressedContext,
   buildNavigationContext,
   buildEditingContext,
+  buildAgentContextWithMemory,
   createContextBuilder,
 } from '@/services/appBrain';
+import * as memoryService from '@/services/memory';
 
 // Mock dependencies used inside contextBuilder
 vi.mock('@/services/appBrain/eventBus', () => {
@@ -156,5 +158,79 @@ describe('AppBrain context builders', () => {
     expect(nav).toContain('[NAVIGATION CONTEXT]');
     expect(edit).toContain('[EDITING CONTEXT]');
     expect(Array.isArray(events)).toBe(true);
+  });
+
+  it('buildAgentContextWithMemory replaces placeholder with formatted memories and goals', async () => {
+    const state = createEmptyAppBrainState();
+    state.manuscript.projectTitle = 'Memory Project';
+
+    const fakeMemories = {
+      author: [
+        {
+          id: 'author-1',
+          text: 'Prefers concise critiques.',
+          type: 'preference',
+          scope: 'author',
+          projectId: null,
+          topicTags: ['style'],
+          importance: 0.9,
+          createdAt: Date.now(),
+        },
+      ],
+      project: [
+        {
+          id: 'proj-1',
+          text: 'Protagonist is Alice.',
+          type: 'fact',
+          scope: 'project',
+          projectId: 'proj-123',
+          topicTags: ['character:alice'],
+          importance: 0.8,
+          createdAt: Date.now(),
+        },
+      ],
+    } as any;
+
+    const fakeGoals = [
+      {
+        id: 'goal-1',
+        projectId: 'proj-123',
+        title: 'Finish draft',
+        description: 'Complete first draft of novel',
+        status: 'active',
+        progress: 10,
+        createdAt: Date.now(),
+      },
+    ] as any;
+
+    const memoriesSpy = vi
+      .spyOn(memoryService, 'getMemoriesForContext')
+      .mockResolvedValue(fakeMemories);
+    const goalsSpy = vi
+      .spyOn(memoryService, 'getActiveGoals')
+      .mockResolvedValue(fakeGoals);
+
+    const baseCtx = buildAgentContext(state);
+    expect(baseCtx).toContain('Memory context loaded separately');
+
+    const ctx = await buildAgentContextWithMemory(state, 'proj-123');
+
+    expect(memoriesSpy).toHaveBeenCalledWith('proj-123', { limit: 25 });
+    expect(goalsSpy).toHaveBeenCalledWith('proj-123');
+
+    expect(ctx).not.toContain('Memory context loaded separately');
+    expect(ctx).toContain('[AGENT MEMORY]');
+    expect(ctx).toContain('## Author Preferences');
+    expect(ctx).toContain('## Project Memory');
+    expect(ctx).toContain('## Active Goals');
+  });
+
+  it('buildAgentContextWithMemory leaves placeholder when projectId is null', async () => {
+    const state = createEmptyAppBrainState();
+
+    const ctx = await buildAgentContextWithMemory(state, null);
+
+    expect(ctx).toContain('[AGENT MEMORY]');
+    expect(ctx).toContain('Memory context loaded separately');
   });
 });

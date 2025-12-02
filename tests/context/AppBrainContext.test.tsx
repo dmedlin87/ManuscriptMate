@@ -97,8 +97,16 @@ vi.mock('@/features/shared/hooks/useManuscriptIntelligence', () => ({
 }));
 
 // appBrain service mocks - wrapped in vi.hoisted so they are initialized
-// before the mocked module factory is hoisted.
-const appBrainMocks = vi.hoisted(() => {
+// before the mocked module factory is hoisted. This follows the Vitest
+// recommendation of destructuring directly from vi.hoisted.
+const {
+  subscribe,
+  subscribeAll,
+  emitSelectionChanged,
+  emitCursorMoved,
+  emitChapterSwitched,
+  contextBuilderFactory,
+} = vi.hoisted(() => {
   const subscribe = vi.fn();
   const subscribeAll = vi.fn();
   const emitSelectionChanged = vi.fn();
@@ -119,15 +127,6 @@ const appBrainMocks = vi.hoisted(() => {
     contextBuilderFactory,
   };
 });
-
-const {
-  subscribe,
-  subscribeAll,
-  emitSelectionChanged,
-  emitCursorMoved,
-  emitChapterSwitched,
-  contextBuilderFactory,
-} = appBrainMocks;
 
 vi.mock('@/services/appBrain', () => ({
   eventBus: { subscribe, subscribeAll },

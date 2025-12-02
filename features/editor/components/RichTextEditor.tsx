@@ -115,26 +115,29 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
   });
 
   // Sync external content changes (when not focused)
-  const lastSyncedContentRef = useRef<string | undefined>(content);
-
   useEffect(() => {
     if (!editor || content === undefined) return;
 
     const rawIsFocused = (editor as any).isFocused;
-    // Treat explicit boolean flags as authoritative (used in tests),
-    // but ignore Tiptap's default function isFocused() for this sync.
+    // Only treat an explicit boolean value as indicating focus. This allows
+    // tests to override focus state via a boolean property while ignoring
+    // Tiptap's default function-style isFocused() for this sync behavior.
     const isEditorFocused = typeof rawIsFocused === 'boolean' ? rawIsFocused : false;
 
-    if (!isEditorFocused && lastSyncedContentRef.current !== content) {
-      try {
-        editor.commands.setContent(content);
-        lastSyncedContentRef.current = content;
-      } catch (error) {
-        // In test environments or edge cases, the editor instance
-        // may not be fully initialized. Swallow errors to avoid
-        // crashing the editor while still attempting best-effort sync.
-        console.error('[RichTextEditor] Failed to sync external content:', error);
-      }
+    if (isEditorFocused) return;
+
+    const currentMarkdown =
+      (editor.storage as any)?.markdown?.getMarkdown?.() ?? '';
+
+    if (currentMarkdown === content) return;
+
+    try {
+      editor.commands.setContent(content);
+    } catch (error) {
+      // In test environments or edge cases, the editor instance
+      // may not be fully initialized. Swallow errors to avoid
+      // crashing the editor while still attempting best-effort sync.
+      console.error('[RichTextEditor] Failed to sync external content:', error);
     }
   }, [content, editor]);
 

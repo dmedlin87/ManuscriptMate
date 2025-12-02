@@ -148,12 +148,21 @@ describe('RichTextEditor', () => {
         getMarkdown: vi.fn(() => storedContent),
       };
 
-      const setContentSpy = vi
-        .spyOn(editor.commands, 'setContent')
-        .mockImplementation((value: any) => {
+      let setContentCalls = 0;
+      const originalCommands = editor.commands;
+      const commandsMock = {
+        ...originalCommands,
+        setContent: (value: any) => {
+          setContentCalls += 1;
           storedContent = value;
           return editor;
-        });
+        },
+      };
+
+      Object.defineProperty(editor, 'commands', {
+        configurable: true,
+        get: () => commandsMock,
+      });
 
       // First: changing content should trigger a setContent call
       act(() => {
@@ -169,12 +178,12 @@ describe('RichTextEditor', () => {
       });
 
       await waitFor(() => {
-        expect(setContentSpy).toHaveBeenCalled();
+        expect(setContentCalls).toBeGreaterThan(0);
       });
 
       expect(storedContent).toBe('Updated content');
 
-      setContentSpy.mockClear();
+      setContentCalls = 0;
 
       // Second: rerender with same content should NOT re-call setContent
       act(() => {
@@ -190,7 +199,7 @@ describe('RichTextEditor', () => {
       });
 
       await waitFor(() => {
-        expect(setContentSpy).not.toHaveBeenCalled();
+        expect(setContentCalls).toBe(0);
       });
     });
 

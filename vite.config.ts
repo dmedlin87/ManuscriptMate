@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
             singleFork: false,
             minForks: 1,
             maxForks: 2,
-            execArgv: ['--max-old-space-size=4096'],
+            execArgv: ['--max-old-space-size=16384'],
           },
         },
         maxConcurrency: 5,
