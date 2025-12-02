@@ -2,60 +2,77 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { AppBrainActions } from '@/services/appBrain';
 
 // Hoisted mocks for command history and registry
-const mockHistory = {
-  record: vi.fn(),
-  persist: vi.fn(),
-  formatForPrompt: vi.fn().mockReturnValue('[HISTORY]'),
-};
+vi.mock('@/services/commands/history', () => {
+  const history = {
+    record: vi.fn(),
+    persist: vi.fn(),
+    formatForPrompt: vi.fn().mockReturnValue('[HISTORY]'),
+  };
 
-const mockRegistry = {
-  isReversible: vi.fn((name: string) => name === 'update_manuscript'),
-  get: vi.fn(),
-  has: vi.fn((name: string) => name === 'update_manuscript'),
-};
+  return {
+    getCommandHistory: () => history,
+  };
+});
 
-vi.mock('@/services/commands/history', () => ({
-  getCommandHistory: () => mockHistory,
-}));
+vi.mock('@/services/commands/registry', () => {
+  const registry = {
+    isReversible: vi.fn((name: string) => name === 'update_manuscript'),
+    get: vi.fn(),
+    has: vi.fn((name: string) => name === 'update_manuscript'),
+  };
 
-vi.mock('@/services/commands/registry', () => ({
-  CommandRegistry: mockRegistry,
-}));
+  return {
+    CommandRegistry: registry,
+  };
+});
 
-const memoryFns = {
-  createMemory: vi.fn().mockResolvedValue({
+vi.mock('@/services/memory', () => {
+  const createMemory = vi.fn().mockResolvedValue({
     text: 'Note text',
     scope: 'project',
     type: 'observation',
-  }),
-  updateMemory: vi.fn().mockResolvedValue({
+  });
+  const updateMemory = vi.fn().mockResolvedValue({
     text: 'Updated text',
     scope: 'project',
     type: 'observation',
-  }),
-  deleteMemory: vi.fn().mockResolvedValue(undefined),
-  addGoal: vi.fn().mockResolvedValue({
+  });
+  const deleteMemory = vi.fn().mockResolvedValue(undefined);
+  const addGoal = vi.fn().mockResolvedValue({
     title: 'Goal',
     status: 'active',
     progress: 0,
-  }),
-  updateGoal: vi.fn().mockResolvedValue({
+  });
+  const updateGoal = vi.fn().mockResolvedValue({
     title: 'Goal',
     status: 'completed',
     progress: 100,
-  }),
-  addWatchedEntity: vi.fn().mockResolvedValue({
+  });
+  const addWatchedEntity = vi.fn().mockResolvedValue({
     name: 'Seth',
     priority: 'high',
-  }),
-  searchMemoriesByTags: vi.fn().mockResolvedValue([
+  });
+  const searchMemoriesByTags = vi.fn().mockResolvedValue([
     { scope: 'project', type: 'observation', text: 'note1' },
     { scope: 'author', type: 'preference', text: 'note2' },
-  ]),
-  formatMemoriesForPrompt: vi.fn().mockReturnValue('formatted memories'),
-};
+  ]);
+  const formatMemoriesForPrompt = vi.fn().mockReturnValue('formatted memories');
 
-vi.mock('@/services/memory', () => memoryFns);
+  return {
+    createMemory,
+    updateMemory,
+    deleteMemory,
+    addGoal,
+    updateGoal,
+    addWatchedEntity,
+    searchMemoriesByTags,
+    formatMemoriesForPrompt,
+  };
+});
+
+import * as memoryModule from '@/services/memory';
+import { getCommandHistory } from '@/services/commands/history';
+import { CommandRegistry } from '@/services/commands/registry';
 
 import {
   isMemoryToolName,
@@ -173,7 +190,7 @@ describe('toolExecutor core helpers', () => {
       'project-1',
     );
 
-    expect(memoryFns.createMemory).toHaveBeenCalledWith({
+    expect(memoryModule.createMemory).toHaveBeenCalledWith({
       scope: 'project',
       projectId: 'project-1',
       text: 'Note text',
@@ -202,7 +219,7 @@ describe('toolExecutor core helpers', () => {
       'project-1',
     );
 
-    expect(memoryFns.createMemory).toHaveBeenCalled();
+    expect(memoryModule.createMemory).toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 });
@@ -225,14 +242,15 @@ describe('ToolExecutor', () => {
     const result = await executor.execute('update_manuscript', args);
 
     expect(result).toEqual({ success: true, message: 'updated' });
-    expect(mockHistory.record).toHaveBeenCalledWith({
+    const history = getCommandHistory();
+    expect(history.record).toHaveBeenCalledWith({
       toolName: 'update_manuscript',
       params: args,
       result: 'updated',
       success: true,
       reversible: true,
     });
-    expect(mockHistory.persist).toHaveBeenCalled();
+    expect(history.persist).toHaveBeenCalled();
   });
 
   it('does not record history for memory tools', async () => {
@@ -245,8 +263,9 @@ describe('ToolExecutor', () => {
       scope: 'project',
     });
 
-    expect(mockHistory.record).not.toHaveBeenCalled();
-    expect(memoryFns.createMemory).toHaveBeenCalled();
+    const history = getCommandHistory();
+    expect(history.record).not.toHaveBeenCalled();
+    expect(memoryModule.createMemory).toHaveBeenCalled();
   });
 
   it('exposes command metadata via getCommandInfo', () => {
@@ -254,20 +273,20 @@ describe('ToolExecutor', () => {
     const executor = new ToolExecutor(actions, 'project-1', true);
 
     const meta = { name: 'update_manuscript' } as any;
-    mockRegistry.get.mockReturnValueOnce(meta);
+    (CommandRegistry.get as any).mockReturnValueOnce(meta);
 
     expect(executor.getCommandInfo('update_manuscript')).toBe(meta);
-    expect(mockRegistry.get).toHaveBeenCalledWith('update_manuscript');
+    expect(CommandRegistry.get).toHaveBeenCalledWith('update_manuscript');
   });
 
   it('hasCommand checks registry and memory tools', () => {
     const actions = createMockActions();
     const executor = new ToolExecutor(actions, 'project-1', true);
 
-    mockRegistry.has.mockReturnValueOnce(true);
+    (CommandRegistry.has as any).mockReturnValueOnce(true);
     expect(executor.hasCommand('update_manuscript')).toBe(true);
 
-    mockRegistry.has.mockReturnValueOnce(false);
+    (CommandRegistry.has as any).mockReturnValueOnce(false);
     expect(executor.hasCommand('watch_entity')).toBe(true);
   });
 
@@ -277,7 +296,8 @@ describe('ToolExecutor', () => {
 
     const text = executor.getHistoryForPrompt(3);
 
-    expect(mockHistory.formatForPrompt).toHaveBeenCalledWith(3);
+    const history = getCommandHistory();
+    expect(history.formatForPrompt).toHaveBeenCalledWith(3);
     expect(text).toBe('[HISTORY]');
   });
 });

@@ -442,7 +442,7 @@ export class DefaultAgentController implements AgentController {
       // Add tool call indicator to messages (mirrors original hook)
       const toolMessage: ChatMessage = {
         role: 'model',
-        text: `🛠️ Suggesting Action: ${call.name}...`,
+        text: `🔨 Suggesting Action: ${call.name}...`,
         timestamp: new Date(),
       };
       this.events?.onMessage?.(toolMessage);

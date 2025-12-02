@@ -116,17 +116,30 @@ export interface AppBrainState {
 // EVENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Base event shape with timestamp
+export interface AppEventBase {
+  timestamp: number;
+}
+
 export type AppEvent = 
-  | { type: 'SELECTION_CHANGED'; payload: { text: string; start: number; end: number } }
-  | { type: 'CURSOR_MOVED'; payload: { position: number; scene: string | null } }
-  | { type: 'CHAPTER_SWITCHED'; payload: { chapterId: string; title: string } }
-  | { type: 'TEXT_CHANGED'; payload: { length: number; delta: number } }
-  | { type: 'ANALYSIS_COMPLETED'; payload: { section: string } }
-  | { type: 'EDIT_MADE'; payload: { author: 'user' | 'agent'; description: string } }
-  | { type: 'COMMENT_ADDED'; payload: { comment: InlineComment } }
-  | { type: 'INTELLIGENCE_UPDATED'; payload: { tier: 'instant' | 'debounced' | 'full' } }
-  | { type: 'TOOL_EXECUTED'; payload: { tool: string; success: boolean } }
-  | { type: 'NAVIGATION_REQUESTED'; payload: { target: string; position?: number } };
+  | AppEventBase & { type: 'SELECTION_CHANGED'; payload: { text: string; start: number; end: number } }
+  | AppEventBase & { type: 'CURSOR_MOVED'; payload: { position: number; scene: string | null } }
+  | AppEventBase & { type: 'CHAPTER_SWITCHED'; payload: { chapterId: string; title: string } }
+  | AppEventBase & { type: 'TEXT_CHANGED'; payload: { length: number; delta: number } }
+  | AppEventBase & { type: 'ANALYSIS_COMPLETED'; payload: { section: string } }
+  | AppEventBase & { type: 'EDIT_MADE'; payload: { author: 'user' | 'agent'; description: string } }
+  | AppEventBase & { type: 'COMMENT_ADDED'; payload: { comment: InlineComment } }
+  | AppEventBase & { type: 'INTELLIGENCE_UPDATED'; payload: { tier: 'instant' | 'debounced' | 'full' } }
+  | AppEventBase & { type: 'TOOL_EXECUTED'; payload: { tool: string; success: boolean } }
+  | AppEventBase & { type: 'NAVIGATION_REQUESTED'; payload: { target: string; position?: number } }
+  // Enhancement 2B & 4C: Additional events for streaming context
+  | AppEventBase & { type: 'BRANCH_SWITCHED'; payload: { branchId: string; name?: string } }
+  | AppEventBase & { type: 'ANALYSIS_COMPLETE'; payload: { type: string } }
+  | AppEventBase & { type: 'MEMORY_CREATED'; payload: { text: string; id: string } }
+  | AppEventBase & { type: 'PANEL_SWITCHED'; payload: { panel: string } }
+  | AppEventBase & { type: 'LORE_UPDATED'; payload: { changeType: 'character' | 'rule'; id?: string } }
+  | AppEventBase & { type: 'DOCUMENT_SAVED'; payload: { chapterId: string } }
+  | AppEventBase & { type: 'ZEN_MODE_TOGGLED'; payload: { enabled: boolean } };
 
 export type EventHandler = (event: AppEvent) => void;
 

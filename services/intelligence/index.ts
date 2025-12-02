@@ -45,6 +45,15 @@ export * from './narrativeArc';
 export * from './chunkIndex';
 export * from './chunkManager';
 
+// Enhancement 1A: Incremental Processing
+export * from './incrementalProcessor';
+
+// Enhancement 1C: Scene Embeddings
+export * from './sceneEmbedder';
+
+// Enhancement 5A: Worker Pool
+export * from './workerPool';
+
 // Type exports
 export type {
   ManuscriptIntelligence,

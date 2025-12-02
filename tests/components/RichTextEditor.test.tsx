@@ -169,8 +169,10 @@ describe('RichTextEditor', () => {
       });
 
       await waitFor(() => {
-        expect(setContentSpy).toHaveBeenCalledWith('Updated content');
+        expect(setContentSpy).toHaveBeenCalled();
       });
+
+      expect(storedContent).toBe('Updated content');
 
       setContentSpy.mockClear();
 

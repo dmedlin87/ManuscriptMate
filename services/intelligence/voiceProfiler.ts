@@ -134,7 +134,8 @@ export const generateVoiceProfile = (
   options?: GenerateVoiceProfileOptions,
 ): VoiceProfile => {
   const metrics = buildVoiceMetrics(lines);
-  const speakerName = options?.speakerName ?? lines[0]?.speaker ?? 'Unknown';
+  const rawName = options?.speakerName ?? lines[0]?.speaker;
+  const speakerName = rawName && rawName.trim().length > 0 ? rawName.trim() : 'Unknown';
   return {
     speakerName,
     metrics,

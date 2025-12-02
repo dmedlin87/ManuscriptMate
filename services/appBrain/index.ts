@@ -27,7 +27,34 @@ export {
   buildNavigationContext,
   buildEditingContext,
   createContextBuilder,
+  buildAgentContextWithMemory,
 } from './contextBuilder';
+
+// Enhancement 2A: Adaptive Context
+export {
+  buildAdaptiveContext,
+  selectBudget,
+  estimateTokens,
+  DEFAULT_BUDGET,
+  VOICE_MODE_BUDGET,
+  EDITING_BUDGET,
+  DEEP_ANALYSIS_BUDGET,
+} from './adaptiveContext';
+
+// Enhancement 2B: Context Streaming
+export {
+  ContextStreamer,
+  getContextStreamer,
+  resetContextStreamer,
+  createStreamingSession,
+  hasSignificantContextChange,
+} from './contextStreamer';
+
+// Enhancement 2C: Cross-Chapter Context
+export {
+  buildCrossChapterContext,
+  formatCrossChapterContext,
+} from './crossChapterContext';
 
 // Default empty state
 import { AppBrainState } from './types';

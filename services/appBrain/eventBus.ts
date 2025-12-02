@@ -16,20 +16,26 @@ class EventBusImpl {
 
   /**
    * Emit an event to all subscribers
+   * Automatically adds timestamp if not present
    */
-  emit(event: AppEvent): void {
+  emit(event: Omit<AppEvent, 'timestamp'> & { timestamp?: number }): void {
+    const eventWithTimestamp = {
+      ...event,
+      timestamp: event.timestamp ?? Date.now(),
+    } as AppEvent;
+    
     // Add to history
-    this.history.push(event);
+    this.history.push(eventWithTimestamp);
     if (this.history.length > MAX_HISTORY) {
       this.history.shift();
     }
 
     // Notify type-specific listeners
-    const typeListeners = this.listeners.get(event.type);
+    const typeListeners = this.listeners.get(eventWithTimestamp.type);
     if (typeListeners) {
       typeListeners.forEach(listener => {
         try {
-          listener(event);
+          listener(eventWithTimestamp);
         } catch (e) {
           console.error(`[EventBus] Listener error for ${event.type}:`, e);
         }
@@ -39,7 +45,7 @@ class EventBusImpl {
     // Notify global listeners
     this.globalListeners.forEach(listener => {
       try {
-        listener(event);
+        listener(eventWithTimestamp);
       } catch (e) {
         console.error(`[EventBus] Global listener error:`, e);
       }

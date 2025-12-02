@@ -177,13 +177,42 @@ export const AnalysisProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
 
     try {
+      const abortSignal = abortControllerRef.current.signal;
+
+      // Helper to ensure promises reject when the abort signal fires,
+      // even if the underlying implementation ignores the signal.
+      const withAbort = <T,>(promise: Promise<T>): Promise<T> => {
+        return new Promise<T>((resolve, reject) => {
+          if (abortSignal.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+          }
+
+          const onAbort = () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+
+          abortSignal.addEventListener('abort', onAbort, { once: true });
+
+          promise
+            .then(value => {
+              abortSignal.removeEventListener('abort', onAbort);
+              resolve(value);
+            })
+            .catch(error => {
+              abortSignal.removeEventListener('abort', onAbort);
+              reject(error);
+            });
+        });
+      };
+
       // Run analyses in parallel
       const promises = [
-        fetchPacingAnalysis(text, setting, abortControllerRef.current.signal),
-        fetchCharacterAnalysis(text, manuscriptIndex, abortControllerRef.current.signal),
-        fetchPlotAnalysis(text, abortControllerRef.current.signal),
-        setting ? fetchSettingAnalysis(text, setting, abortControllerRef.current.signal) : Promise.resolve(null)
-      ];
+        withAbort(fetchPacingAnalysis(text, setting, abortSignal)),
+        withAbort(fetchCharacterAnalysis(text, manuscriptIndex, abortSignal)),
+        withAbort(fetchPlotAnalysis(text, abortSignal)),
+        setting ? withAbort(fetchSettingAnalysis(text, setting, abortSignal)) : Promise.resolve(null)
+      ] as const;
 
       const [pacingResult, characterResult, plotResult, settingResult] = await Promise.all(promises);
 

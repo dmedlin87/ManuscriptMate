@@ -321,7 +321,9 @@ describe('AnalysisContext', () => {
       const [firstMessage] = consoleSpy.mock.calls[0];
       expect(String(firstMessage)).toContain('[AnalysisContext] Full analysis failed:');
 
-      expect(result.current.isAnalyzing).toBe(false);
+      await waitFor(() => {
+        expect(result.current.isAnalyzing).toBe(false);
+      });
 
       consoleSpy.mockRestore();
     });

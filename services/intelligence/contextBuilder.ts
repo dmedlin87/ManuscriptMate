@@ -197,7 +197,8 @@ const buildPrioritizedIssues = (
   // Get issues from heatmap sections near cursor
   const nearbyStart = Math.max(0, cursorOffset - 2000);
   const nearbyEnd = cursorOffset + 2000;
-  
+
+  // 1) Use explicit heatmap sections when available
   for (const section of heatmap.sections) {
     if (section.offset >= nearbyStart && section.offset < nearbyEnd) {
       for (const flag of section.flags) {
@@ -208,6 +209,19 @@ const buildPrioritizedIssues = (
           severity: section.overallRisk,
         });
       }
+    }
+  }
+
+  // 2) Also consider the primary section at the cursor offset (even if not in sections[])
+  const primarySection = getSectionAtOffset(heatmap, cursorOffset);
+  if (primarySection) {
+    for (const flag of primarySection.flags) {
+      issues.push({
+        type: flag,
+        description: primarySection.suggestions[0] || `${flag} detected`,
+        offset: primarySection.offset,
+        severity: primarySection.overallRisk,
+      });
     }
   }
   

@@ -96,17 +96,38 @@ vi.mock('@/features/shared/hooks/useManuscriptIntelligence', () => ({
   useManuscriptIntelligence: () => ({ intelligence: mockIntelligence, hud: mockHud }),
 }));
 
-// appBrain service mocks
-const subscribe = vi.fn();
-const subscribeAll = vi.fn();
-export const emitSelectionChanged = vi.fn();
-export const emitCursorMoved = vi.fn();
-export const emitChapterSwitched = vi.fn();
+// appBrain service mocks - wrapped in vi.hoisted so they are initialized
+// before the mocked module factory is hoisted.
+const appBrainMocks = vi.hoisted(() => {
+  const subscribe = vi.fn();
+  const subscribeAll = vi.fn();
+  const emitSelectionChanged = vi.fn();
+  const emitCursorMoved = vi.fn();
+  const emitChapterSwitched = vi.fn();
 
-const contextBuilderFactory = (getState: () => any) => ({
-  getAgentContext: () => `TITLE:${getState().manuscript.projectTitle}`,
-  getCompressedContext: () => 'COMPRESSED',
+  const contextBuilderFactory = (getState: () => any) => ({
+    getAgentContext: () => `TITLE:${getState().manuscript.projectTitle}`,
+    getCompressedContext: () => 'COMPRESSED',
+  });
+
+  return {
+    subscribe,
+    subscribeAll,
+    emitSelectionChanged,
+    emitCursorMoved,
+    emitChapterSwitched,
+    contextBuilderFactory,
+  };
 });
+
+const {
+  subscribe,
+  subscribeAll,
+  emitSelectionChanged,
+  emitCursorMoved,
+  emitChapterSwitched,
+  contextBuilderFactory,
+} = appBrainMocks;
 
 vi.mock('@/services/appBrain', () => ({
   eventBus: { subscribe, subscribeAll },

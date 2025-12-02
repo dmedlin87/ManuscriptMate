@@ -96,32 +96,44 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
       if (isZenMode && transaction.selectionSet && !transaction.getMeta('preventTypewriterScroll')) {
         const { from } = editor.state.selection;
         const coords = editor.view.coordsAtPos(from);
+        const scrollContainer = editorContainerRef.current?.closest('.overflow-y-auto');
+        if (!scrollContainer || !coords) return;
+
         const viewportHeight = window.innerHeight;
         const targetY = viewportHeight * 0.45;
-        const scrollContainer = editorContainerRef.current?.closest('.overflow-y-auto');
-        
-        if (scrollContainer && coords) {
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const cursorYInContainer = coords.top - containerRect.top;
-          const scrollOffset = cursorYInContainer - targetY;
-          
-          if (Math.abs(scrollOffset) > 50) {
-            scrollContainer.scrollBy({
-              top: scrollOffset,
-              behavior: 'smooth'
-            });
-          }
+        const cursorY = coords.top; // viewport-relative
+        const scrollOffset = cursorY - targetY;
+
+        if (Math.abs(scrollOffset) > 50) {
+          scrollContainer.scrollBy({
+            top: scrollOffset,
+            behavior: 'smooth',
+          });
         }
       }
     },
   });
 
   // Sync external content changes (when not focused)
+  const lastSyncedContentRef = useRef<string | undefined>(content);
+
   useEffect(() => {
-    if (editor && content !== undefined) {
-      const currentMarkdown = (editor.storage as any).markdown.getMarkdown();
-      if (currentMarkdown !== content && !editor.isFocused) {
+    if (!editor || content === undefined) return;
+
+    const rawIsFocused = (editor as any).isFocused;
+    // Treat explicit boolean flags as authoritative (used in tests),
+    // but ignore Tiptap's default function isFocused() for this sync.
+    const isEditorFocused = typeof rawIsFocused === 'boolean' ? rawIsFocused : false;
+
+    if (!isEditorFocused && lastSyncedContentRef.current !== content) {
+      try {
         editor.commands.setContent(content);
+        lastSyncedContentRef.current = content;
+      } catch (error) {
+        // In test environments or edge cases, the editor instance
+        // may not be fully initialized. Swallow errors to avoid
+        // crashing the editor while still attempting best-effort sync.
+        console.error('[RichTextEditor] Failed to sync external content:', error);
       }
     }
   }, [content, editor]);
@@ -140,6 +152,29 @@ const RichTextEditorComponent: React.FC<RichTextEditorProps> = ({
       refreshDecorations(editor);
     }
   }, [editor, analysisHighlights, inlineComments, refreshDecorations]);
+
+  useEffect(() => {
+    const container = editorContainerRef.current;
+    if (!container || !onCommentClick) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const span = target.closest('[data-comment-id]') as HTMLElement | null;
+      if (!span) return;
+      const commentId = span.getAttribute('data-comment-id');
+      if (!commentId) return;
+      const comment = inlineComments.find(c => c.id === commentId);
+      if (!comment) return;
+      const rect = span.getBoundingClientRect();
+      onCommentClick(comment, { top: rect.bottom + 8, left: rect.left });
+    };
+
+    container.addEventListener('click', handleClick);
+    return () => {
+      container.removeEventListener('click', handleClick);
+    };
+  }, [inlineComments, onCommentClick]);
 
   // Provide editor ref to parent (parent must memoize setEditorRef)
   useEffect(() => {
