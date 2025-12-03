@@ -94,18 +94,26 @@ export function useAgentOrchestrator(
   // Refs
   const chatRef = useRef<Chat | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const latestStateRef = useRef(brain.state);
   
   // Settings
   const critiqueIntensity = useSettingsStore(s => s.critiqueIntensity);
   const experienceLevel = useSettingsStore(s => s.experienceLevel);
   const autonomyMode = useSettingsStore(s => s.autonomyMode);
+  const manuscriptProjectId = brain.state.manuscript.projectId;
+
+  // Keep a ref to the latest brain state so callbacks can read fresh context without re-registering
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    latestStateRef.current = brain.state;
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // SESSION INITIALIZATION
   // ─────────────────────────────────────────────────────────────────────────
 
   const initSession = useCallback(async () => {
-    const { manuscript, lore, analysis, intelligence } = brain.state;
+    const { manuscript, lore, analysis, intelligence } = latestStateRef.current;
     
     // Build full manuscript context
     const fullManuscript = manuscript.chapters.map(c => {
@@ -138,7 +146,7 @@ export function useAgentOrchestrator(
     }
 
     dispatch({ type: 'SESSION_READY' });
-  }, [brain.state, currentPersona, critiqueIntensity, experienceLevel, autonomyMode]);
+  }, [currentPersona, critiqueIntensity, experienceLevel, autonomyMode]);
 
   // Initialize on mount
   useEffect(() => {
@@ -146,7 +154,7 @@ export function useAgentOrchestrator(
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, [initSession]);
+  }, [initSession, manuscriptProjectId]);
 
   // Persona change announcement (session reinit is handled by the initSession effect)
   useEffect(() => {
@@ -210,7 +218,7 @@ export function useAgentOrchestrator(
 
     try {
       // Build context-aware prompt using AppBrain
-      const { ui } = brain.state;
+      const { ui } = latestStateRef.current;
       const contextPrompt = `
 [CURRENT CONTEXT]
 ${brain.context.getCompressedContext()}
@@ -288,7 +296,7 @@ ${messageText}
     } finally {
       // isProcessing is derived from reducer state; no manual reset here
     }
-  }, [brain.state, brain.context, executeToolCall]);
+  }, [brain.context, executeToolCall]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CONTROL METHODS

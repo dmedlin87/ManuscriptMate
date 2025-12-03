@@ -6,6 +6,7 @@ import { ChatMessage, EditorContext, AnalysisResult, CharacterProfile } from '@/
 
 import { getMemoriesForContext, getActiveGoals, formatMemoriesForPrompt, formatGoalsForPrompt } from '@/services/memory';
 import { clearSessionMemories, shouldRefreshContext, getSessionMemorySummary } from '@/services/memory/sessionTracker';
+import { ApiDefaults } from '@/config/api';
 
 
 
@@ -77,7 +78,8 @@ interface ChatInterfaceProps {
 
 }
 
-
+const MAX_CHAT_MESSAGES = 200;
+const MAX_FULL_MANUSCRIPT_CHARS = ApiDefaults.maxAnalysisLength;
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
 
@@ -175,17 +177,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const gen = ++initGenRef.current;
 
-    // Construct a single string containing all chapters for context
+    // Construct a single string containing all chapters for context, capped to avoid huge payloads
+    const chapterSeparator = '\n-------------------\n';
+    let remainingBudget = MAX_FULL_MANUSCRIPT_CHARS;
+    const manuscriptParts: string[] = [];
 
-    const fullManuscript = chapters.map(c => {
+    for (const c of chapters) {
+      // Check if this is the active chapter by comparing text content (simple heuristic) or ID if we had it here
+      const isActive = c.content === fullText;
 
-       // Check if this is the active chapter by comparing text content (simple heuristic) or ID if we had it here
+      const header = `[CHAPTER: ${c.title}]${isActive ? " (ACTIVE - You can edit this)" : " (READ ONLY - Request user to switch)"}\n`;
 
-       const isActive = c.content === fullText;
+      const availableForContent = remainingBudget - header.length - chapterSeparator.length;
+      if (availableForContent <= 0) {
+        break;
+      }
 
-       return `[CHAPTER: ${c.title}]${isActive ? " (ACTIVE - You can edit this)" : " (READ ONLY - Request user to switch)"}\n${c.content}\n`;
+      const chapterContent =
+        c.content.length > availableForContent
+          ? c.content.slice(0, availableForContent)
+          : c.content;
 
-    }).join('\n-------------------\n');
+      manuscriptParts.push(header + chapterContent + '\n');
+
+      remainingBudget -= header.length + chapterContent.length + chapterSeparator.length;
+
+      if (remainingBudget <= 0) {
+        break;
+      }
+    }
+
+    const fullManuscript = manuscriptParts.join(chapterSeparator);
 
     // Fetch memory context (async)
     const memoryContext = await buildMemoryContext();
@@ -261,6 +283,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, agentState]);
+
+  // Cap message history length to avoid unbounded DOM and memory growth
+  useEffect(() => {
+    if (messages.length > MAX_CHAT_MESSAGES) {
+      setMessages(prev => prev.slice(-MAX_CHAT_MESSAGES));
+    }
+  }, [messages]);
 
   // Handle initial message from Smart Apply
   useEffect(() => {
