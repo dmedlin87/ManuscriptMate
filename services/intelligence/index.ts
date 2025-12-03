@@ -48,6 +48,11 @@ export * from './chunkManager';
 // Enhancement 1A: Incremental Processing
 export * from './incrementalProcessor';
 
+// Character Context Extraction & Image Generation
+export * from './characterContextExtractor';
+export * from './imagePromptBuilder';
+export * from './visualDescriptionExtractor';
+
 // Enhancement 1C: Scene Embeddings
 export * from './sceneEmbedder';
 

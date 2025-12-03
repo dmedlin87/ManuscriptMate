@@ -445,6 +445,90 @@ Ask natural language questions like "What are Sarah's relationships?" or "What r
       type: Type.OBJECT,
       properties: {}
     }
+  },
+  {
+    name: 'get_character_visual_description',
+    description: `Get comprehensive visual description of a character for image generation or reference.
+Returns detailed physical appearance, attributes, and appearance evolution across story arcs.`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        character_name: {
+          type: Type.STRING,
+          description: 'Character name to get visual description for'
+        },
+        stage: {
+          type: Type.STRING,
+          description: 'Optional: Story stage/arc to get appearance at specific point in time'
+        }
+      },
+      required: ['character_name']
+    }
+  },
+  {
+    name: 'generate_image_prompt',
+    description: `Generate a detailed image generation prompt for a character based on their visual description.
+Optimized for AI image generation tools (DALL-E, Stable Diffusion, etc.)`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        character_name: {
+          type: Type.STRING,
+          description: 'Character name to generate prompt for'
+        },
+        style: {
+          type: Type.STRING,
+          enum: ['photorealistic', 'digital-art', 'oil-painting', 'watercolor', 'sketch', 'anime', 'comic-book', 'fantasy-art', 'noir', 'cinematic'],
+          description: 'Visual style for the image'
+        },
+        framing: {
+          type: Type.STRING,
+          enum: ['portrait', 'full-body', 'headshot', 'action-shot', 'environmental'],
+          description: 'How to frame the character'
+        },
+        setting: {
+          type: Type.STRING,
+          description: 'Optional: Setting/background for the character'
+        },
+        mood: {
+          type: Type.STRING,
+          description: 'Optional: Mood or atmosphere (e.g., "dramatic", "peaceful", "tense")'
+        }
+      },
+      required: ['character_name']
+    }
+  },
+  {
+    name: 'extract_character_visuals_from_text',
+    description: `Extract detailed visual descriptions of characters from manuscript text using AI.
+Automatically populates visual attributes from narrative descriptions.`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        character_name: {
+          type: Type.STRING,
+          description: 'Optional: Specific character to extract. If not provided, extracts all characters.'
+        },
+        chapter_id: {
+          type: Type.STRING,
+          description: 'Optional: Specific chapter to analyze. If not provided, uses current chapter.'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_all_character_contexts',
+    description: `Get comprehensive context for all characters in the story.
+Returns complete character information including bio, relationships, visual descriptions, and plot involvement.`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        include_visuals: {
+          type: Type.BOOLEAN,
+          description: 'Whether to include visual descriptions (default: true)'
+        }
+      }
+    }
   }
 ];
 

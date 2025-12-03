@@ -22,6 +22,28 @@ export interface CharacterProfile {
     endIndex?: number;
   }>;
   developmentSuggestion: string;
+  // Visual description fields for image generation and character visualization
+  physicalAppearance?: string; // Consolidated narrative description
+  visualAttributes?: {
+    age?: string;
+    gender?: string;
+    height?: string;
+    build?: string;
+    hairColor?: string;
+    hairStyle?: string;
+    eyeColor?: string;
+    skinTone?: string;
+    facialFeatures?: string[];
+    distinguishingMarks?: string[];
+    typicalClothing?: string;
+    accessories?: string[];
+    [key: string]: string | string[] | undefined;
+  };
+  appearanceEvolution?: Array<{
+    stage: string; // Links to arc stage
+    description: string;
+    changes: string[];
+  }>;
 }
 
 export interface AnalysisResult {
@@ -92,6 +114,27 @@ const CharacterProfileSchema = z.object({
     quote: z.string().optional(),
   })).default([]),
   developmentSuggestion: z.string().default(''),
+  // Visual description fields
+  physicalAppearance: z.string().optional(),
+  visualAttributes: z.object({
+    age: z.string().optional(),
+    gender: z.string().optional(),
+    height: z.string().optional(),
+    build: z.string().optional(),
+    hairColor: z.string().optional(),
+    hairStyle: z.string().optional(),
+    eyeColor: z.string().optional(),
+    skinTone: z.string().optional(),
+    facialFeatures: z.array(z.string()).optional(),
+    distinguishingMarks: z.array(z.string()).optional(),
+    typicalClothing: z.string().optional(),
+    accessories: z.array(z.string()).optional(),
+  }).passthrough().optional(),
+  appearanceEvolution: z.array(z.object({
+    stage: z.string(),
+    description: z.string(),
+    changes: z.array(z.string()),
+  })).optional(),
 });
 
 export const AnalysisResultSchema = z.object({
