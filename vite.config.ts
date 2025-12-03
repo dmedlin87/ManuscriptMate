@@ -22,12 +22,15 @@ export default defineConfig(({ mode }) => {
       },
       test: {
         globals: true,
+        environment: 'node',
         environmentMatchGlobs: [
           ['tests/components/**', 'jsdom'],
-          ['tests/features/**/*.tsx', 'jsdom'],
-          ['tests/features/**/*.test.tsx', 'jsdom'],
+          ['tests/features/**', 'jsdom'],
           ['tests/hooks/**', 'jsdom'],
+          ['tests/services/**', 'jsdom'],
+          ['tests/integration/**', 'jsdom'],
           ['**/*.test.tsx', 'jsdom'],
+          ['**/*.test.ts', 'jsdom'],
           ['**/*.ts', 'node'],
         ],
         isolate: true,

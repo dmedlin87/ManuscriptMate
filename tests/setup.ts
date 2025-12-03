@@ -3,6 +3,11 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 import React from 'react';
 
+const windowRef =
+  typeof window !== 'undefined'
+    ? window
+    : ((globalThis as any) as Window & typeof globalThis);
+
 // Stores are now globally mocked, so no need for manual state tracking
 
 // Lightweight global mock for @google/genai to avoid heavy SDK initialization in tests
@@ -278,7 +283,7 @@ vi.mock('@/features/project/store/useProjectStore', () => ({
 }));
 
 // Mock matchMedia for components that use it
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(windowRef, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
     matches: false,

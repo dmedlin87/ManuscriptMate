@@ -7,8 +7,11 @@ export interface ParsedChapter {
  * Main entry point for parsing a raw text dump into structured chapters.
  */
 export function parseManuscript(rawText: string): ParsedChapter[] {
+  // Normalize line endings before any heuristics run so CRLF dumps don't break regexes.
+  const normalizedText = rawText.replace(/\r\n?/g, '\n');
+
   // 1. Clean Artifacts (Page numbers, recurring headers)
-  const cleanText = stripArtifacts(rawText);
+  const cleanText = stripArtifacts(normalizedText);
 
   // 2. Split Chapters based on heuristics
   return splitChapters(cleanText);

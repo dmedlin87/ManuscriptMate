@@ -158,14 +158,18 @@ CI additionally prevents **regressions** larger than **2.0 percentage points** r
 
 Testing is considered **complete enough** when:
 
-1. **80%+ statement coverage** on all non‑UI logic (services, stores, hooks, utilities).
-2. **60%+ statement coverage** on React components (render + key interactions).
+1. **95%+ statement coverage** on all non‑UI logic (services, stores, hooks, utilities) at the project level. Individual files may be lower, but the overall core-logic layer should meet or exceed 95%.
+2. **75%+ statement coverage** on React components overall, with **90%+** on critical surfaces (editor workspace, agent/chat flows, analysis dashboards, project dashboard/import flows).
 3. **All critical paths** have explicit tests:
    - Persistence / IndexedDB
    - AI calls and error handling
    - Branching, version control, and export flows.
-4. **Zero regressions** – coverage cannot silently drop without CI failure.
-5. **Docs stay in sync** – [TEST_COVERAGE.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_COVERAGE.md:0:0-0:0) and [TEST_AUDIT.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_AUDIT.md:0:0-0:0) are fresh and committed.
+4. **Representative integration coverage** for new high‑level features:
+   - At least one integration test in `tests/integration/` that exercises the end‑to‑end happy path.
+   - Error paths for those flows are covered either by integration tests or focused unit tests.
+5. **Zero regressions** – coverage cannot silently drop without CI failure; any intentional decrease must be justified in the PR description and accompanied by new tests elsewhere.
+6. **Docs stay in sync** – [TEST_COVERAGE.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_COVERAGE.md:0:0-0:0) and [TEST_AUDIT.md](cci:7://file:///c:/Users/dmedl/Projects/Quill%20AI/docs/TEST_AUDIT.md:0:0-0:0) are fresh and committed.
+7. **CI thresholds are treated as a floor, not the goal** – local work aims for the stricter targets above (95%+ core logic, 75–90%+ key UI) even though Vite/CI enforce lower numeric minimums.
 
 ---
 
