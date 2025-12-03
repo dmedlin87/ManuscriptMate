@@ -1,9 +1,17 @@
-import React, { createContext, useContext, useCallback, useState, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useState, useMemo, useEffect } from 'react';
 
 import { useProjectStore } from '@/features/project';
 import { useDocumentHistory, useEditorSelection, useEditorComments, useEditorBranching } from '@/features/editor';
 
 import { HistoryItem, HighlightRange, EditorContext as EditorContextType } from '@/types';
+
+import {
+  emitCursorMoved,
+  emitEditMade,
+  emitSelectionChanged,
+  emitTextChanged,
+  emitZenModeToggled,
+} from '@/services/appBrain';
 
 import { Editor } from '@tiptap/react';
 import { Branch, InlineComment } from '@/types/schema';
@@ -183,6 +191,16 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     getEditorContext,
   } = useEditorSelection({ editor, currentText });
 
+  useEffect(() => {
+    if (selectionRange) {
+      emitSelectionChanged(selectionRange.text, selectionRange.start, selectionRange.end);
+    }
+  }, [selectionRange]);
+
+  useEffect(() => {
+    emitCursorMoved(cursorPosition, null);
+  }, [cursorPosition]);
+
   // Quill AI 3.0: Branching State
   const {
     branches,
@@ -206,7 +224,13 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Quill AI 3.0: Zen Mode State
   const [isZenMode, setIsZenMode] = useState(false);
-  const toggleZenMode = useCallback(() => setIsZenMode(prev => !prev), []);
+  const toggleZenMode = useCallback(() => {
+    setIsZenMode(prev => {
+      const next = !prev;
+      emitZenModeToggled(next);
+      return next;
+    });
+  }, []);
 
   const stateValue: EditorStateContextValue = useMemo(() => ({
     editor,
@@ -247,8 +271,14 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ]);
 
   const setEditorStable = useCallback((next: Editor | null) => setEditor(next), []);
-  const updateTextStable = useCallback((text: string) => updateText(text), [updateText]);
-  const commitStable = useCallback((text: string, description: string, author: 'User' | 'Agent') => commit(text, description, author), [commit]);
+  const updateTextStable = useCallback((text: string) => {
+    emitTextChanged(text.length, text.length - currentText.length);
+    updateText(text);
+  }, [currentText.length, updateText]);
+  const commitStable = useCallback((text: string, description: string, author: 'User' | 'Agent') => {
+    emitEditMade(author.toLowerCase() as 'user' | 'agent', description);
+    commit(text, description, author);
+  }, [commit]);
   const loadDocumentStable = useCallback((text: string) => loadDocument(text), [loadDocument]);
   const undoStable = useCallback(() => undo(), [undo]);
   const redoStable = useCallback(() => redo(), [redo]);

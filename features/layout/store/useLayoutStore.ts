@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { SidebarTab, MainView, CharacterProfile } from '@/types';
+import { emitPanelSwitched } from '@/services/appBrain';
 
 interface LayoutState {
   // Sidebar & Panel State
@@ -89,7 +90,10 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   currentPersonaIndex: 0,
 
   // Tab/View Actions
-  setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveTab: (tab) => {
+    emitPanelSwitched(tab);
+    set({ activeTab: tab });
+  },
   setActiveView: (view) => set({ activeView: view }),
   toggleView: () => set((state) => ({
     activeView: state.activeView === MainView.EDITOR ? MainView.STORYBOARD : MainView.EDITOR
@@ -129,7 +133,10 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   setCurrentPersonaIndex: (index) => set({ currentPersonaIndex: index }),
 
   // Compound Actions
-  openTabWithPanel: (tab) => set({ activeTab: tab, isToolsCollapsed: false }),
+  openTabWithPanel: (tab) => {
+    emitPanelSwitched(tab);
+    set({ activeTab: tab, isToolsCollapsed: false });
+  },
 
   handleFixRequest: (issueContext, suggestion) => {
     const prompt = `I need to fix an issue. Context: ${issueContext}. Suggestion: ${suggestion}. Please locate this in the text and rewrite it using the update_manuscript tool.`;

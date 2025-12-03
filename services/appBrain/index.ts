@@ -18,8 +18,11 @@ export {
   emitChapterSwitched,
   emitTextChanged,
   emitEditMade,
+  emitAnalysisCompleted,
   emitToolExecuted,
   emitNavigationRequested,
+  emitPanelSwitched,
+  emitZenModeToggled,
 } from './eventBus';
 
 // Context builders
@@ -151,8 +154,12 @@ export const AppBrainProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [brainState, context],
   );
 
-  return <AppBrainReactContext.Provider value={value}>{children}</AppBrainReactContext.Provider>;
-};
+    return React.createElement(
+      AppBrainReactContext.Provider,
+      { value },
+      children,
+    );
+  };
 
 export const useAppBrain = (): AppBrainValue => {
   const ctx = useContext(AppBrainReactContext);

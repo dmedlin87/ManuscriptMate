@@ -6,6 +6,7 @@ import {
   emitChapterSwitched,
   emitTextChanged,
   emitEditMade,
+  emitAnalysisCompleted,
   emitToolExecuted,
   emitNavigationRequested,
 } from '@/services/appBrain';
@@ -14,6 +15,7 @@ describe('eventBus', () => {
   beforeEach(() => {
     // Clear history between tests
     (eventBus as any).clearHistory();
+    (eventBus as any).clearPersistentLog();
   });
 
   it('notifies type-specific and global subscribers', () => {
@@ -74,4 +76,31 @@ describe('eventBus', () => {
     const formatted = eventBus.formatRecentEventsForAI(5);
     expect(formatted).toBe('');
   });
+
+  it('stores events in the persistent change log for audits', () => {
+    emitTextChanged(20, 5);
+    emitAnalysisCompleted('chapter-1', 'success');
+
+    const log = eventBus.getChangeLog(5);
+    expect(log.some(evt => evt.type === 'TEXT_CHANGED')).toBe(true);
+    expect(log.some(evt => evt.type === 'ANALYSIS_COMPLETED')).toBe(true);
+  });
+
+  it('replays logged events to orchestrator subscribers', () => {
+    emitPanelSwitch();
+    const handler = vi.fn();
+
+    const unsubscribe = eventBus.subscribeForOrchestrator(handler, {
+      types: ['PANEL_SWITCHED'],
+      replay: true,
+    });
+
+    expect(handler).toHaveBeenCalled();
+    unsubscribe();
+  });
 });
+
+// Helper to avoid linter noise inside tests
+const emitPanelSwitch = () => {
+  eventBus.emit({ type: 'PANEL_SWITCHED', payload: { panel: 'chat' }, timestamp: Date.now() });
+};
