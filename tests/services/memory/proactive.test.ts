@@ -21,12 +21,19 @@ vi.mock('@/services/db', () => ({
   },
 }));
 
-// Mock memory index functions
-vi.mock('@/services/memory/index', () => ({
-  getMemories: vi.fn().mockResolvedValue([]),
-  getActiveGoals: vi.fn().mockResolvedValue([]),
-  searchMemoriesByTags: vi.fn().mockResolvedValue([]),
-}));
+// Mock memory index functions with a partial mock so all named exports exist
+vi.mock('@/services/memory/index', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/memory/index')>();
+  return {
+    ...actual,
+    getMemories: vi.fn().mockResolvedValue([]),
+    getActiveGoals: vi.fn().mockResolvedValue([]),
+    searchMemoriesByTags: vi.fn().mockResolvedValue([]),
+    getMemoriesCached: vi.fn().mockResolvedValue([]),
+    getGoalsCached: vi.fn().mockResolvedValue([]),
+    getWatchedCached: vi.fn().mockResolvedValue([]),
+  };
+});
 
 import {
   extractEntitiesFromText,
@@ -36,7 +43,11 @@ import {
   getImportantReminders,
 } from '@/services/memory/proactive';
 import { db } from '@/services/db';
-import { getMemories, getActiveGoals, searchMemoriesByTags } from '@/services/memory/index';
+import {
+  getMemoriesCached,
+  getGoalsCached,
+  searchMemoriesByTags,
+} from '@/services/memory/index';
 
 describe('Proactive Memory Suggestions', () => {
   const mockProjectId = 'test-project';
@@ -212,7 +223,7 @@ describe('Proactive Memory Suggestions', () => {
     });
 
     it('generates suggestions for relevant goals', async () => {
-      vi.mocked(getActiveGoals).mockResolvedValue([
+      vi.mocked(getGoalsCached).mockResolvedValue([
         {
           id: 'goal1',
           projectId: mockProjectId,
@@ -278,7 +289,7 @@ describe('Proactive Memory Suggestions', () => {
 
   describe('getImportantReminders', () => {
     it('returns high-importance unresolved issues', async () => {
-      vi.mocked(getMemories).mockResolvedValue([
+      vi.mocked(getMemoriesCached).mockResolvedValue([
         {
           id: 'issue1',
           text: 'Plot hole in chapter 3',
@@ -301,7 +312,7 @@ describe('Proactive Memory Suggestions', () => {
     it('returns stalled goals as reminders', async () => {
       const twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);
       
-      vi.mocked(getActiveGoals).mockResolvedValue([
+      vi.mocked(getGoalsCached).mockResolvedValue([
         {
           id: 'goal1',
           projectId: mockProjectId,
