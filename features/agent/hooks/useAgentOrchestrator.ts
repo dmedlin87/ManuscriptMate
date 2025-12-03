@@ -16,7 +16,8 @@ import { useAppBrain } from '@/features/core';
 import { ChatMessage } from '@/types';
 import { Persona, DEFAULT_PERSONAS } from '@/types/personas';
 import { useSettingsStore } from '@/features/settings';
-import { emitToolExecuted } from '@/services/appBrain';
+import { emitToolExecuted, eventBus } from '@/services/appBrain';
+import type { AppEvent } from '@/services/appBrain';
 import { runAgentToolLoop, AgentToolLoopModelResult } from '@/services/core/agentToolLoop';
 import {
   agentOrchestratorReducer,
@@ -90,11 +91,12 @@ export function useAgentOrchestrator(
   const isReady = agentState.isReady;
   const isProcessing =
     agentState.status === 'thinking' || agentState.status === 'executing';
-  
+
   // Refs
   const chatRef = useRef<Chat | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const latestStateRef = useRef(brain.state);
+  const orchestratorEventLogRef = useRef<AppEvent[]>(eventBus.getChangeLog(10));
   
   // Settings
   const critiqueIntensity = useSettingsStore(s => s.critiqueIntensity);
@@ -107,6 +109,20 @@ export function useAgentOrchestrator(
   useEffect(() => {
     latestStateRef.current = brain.state;
   });
+
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribeForOrchestrator((event) => {
+      orchestratorEventLogRef.current = [
+        ...orchestratorEventLogRef.current.slice(-9),
+        event,
+      ];
+    }, {
+      types: ['TEXT_CHANGED', 'ANALYSIS_COMPLETED', 'PANEL_SWITCHED', 'TOOL_EXECUTED'],
+      replay: true,
+    });
+
+    return unsubscribe;
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SESSION INITIALIZATION
@@ -219,6 +235,13 @@ export function useAgentOrchestrator(
     try {
       // Build context-aware prompt using AppBrain
       const { ui } = latestStateRef.current;
+      const recentEvents = orchestratorEventLogRef.current.length > 0
+        ? orchestratorEventLogRef.current
+            .slice(-5)
+            .map(ev => `${new Date(ev.timestamp).toLocaleTimeString()}: ${ev.type}`)
+            .join('\n')
+        : 'None';
+
       const contextPrompt = `
 [CURRENT CONTEXT]
 ${brain.context.getCompressedContext()}
@@ -226,6 +249,9 @@ ${brain.context.getCompressedContext()}
 [USER STATE]
 Cursor: ${ui.cursor.position}
 Selection: ${ui.selection ? `"${ui.selection.text.slice(0, 100)}${ui.selection.text.length > 100 ? '...' : ''}"` : 'None'}
+
+[RECENT EVENTS]
+${recentEvents}
 
 [USER REQUEST]
 ${messageText}

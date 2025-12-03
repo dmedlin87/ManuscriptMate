@@ -121,12 +121,15 @@ export interface AppEventBase {
   timestamp: number;
 }
 
-export type AppEvent = 
+export type AppEvent =
   | AppEventBase & { type: 'SELECTION_CHANGED'; payload: { text: string; start: number; end: number } }
   | AppEventBase & { type: 'CURSOR_MOVED'; payload: { position: number; scene: string | null } }
   | AppEventBase & { type: 'CHAPTER_SWITCHED'; payload: { chapterId: string; title: string } }
   | AppEventBase & { type: 'TEXT_CHANGED'; payload: { length: number; delta: number } }
-  | AppEventBase & { type: 'ANALYSIS_COMPLETED'; payload: { section: string } }
+  | AppEventBase & {
+      type: 'ANALYSIS_COMPLETED';
+      payload: { section: string; status?: 'success' | 'error'; detail?: string };
+    }
   | AppEventBase & { type: 'EDIT_MADE'; payload: { author: 'user' | 'agent'; description: string } }
   | AppEventBase & { type: 'COMMENT_ADDED'; payload: { comment: InlineComment } }
   | AppEventBase & { type: 'INTELLIGENCE_UPDATED'; payload: { tier: 'instant' | 'debounced' | 'full' } }

@@ -6,6 +6,7 @@ import { useUsage } from '../context/UsageContext';
 import { ModelConfig } from '@/config/models';
 import { useMagicEditor } from '@/features/editor';
 import { isMemoryTool, executeMemoryTool } from '@/services/gemini/memoryToolHandlers';
+import { emitAnalysisCompleted } from '@/services/appBrain';
 
 // Define proper types
 interface ProjectContext {
@@ -128,6 +129,7 @@ export function useQuillAIEngine({
       }
       
       await updateChapterAnalysis(chapterId, result);
+      emitAnalysisCompleted(chapterId, 'success');
 
       // --- LORE BIBLE UPDATE (Legacy) ---
       // We still update Lore for backward compatibility with the Chat Agent
@@ -146,6 +148,7 @@ export function useQuillAIEngine({
       setAnalysisError(message);
       setAnalysisWarning(null);
       console.error("Analysis failed", e);
+      emitAnalysisCompleted(chapterId || 'analysis', 'error', message);
     } finally {
       if (!signal.aborted) {
         setIsAnalyzing(false);
