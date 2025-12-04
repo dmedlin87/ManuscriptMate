@@ -9,6 +9,10 @@ import {
   selectContextProfile,
   getContextBudgetForModel,
   PROFILE_ALLOCATIONS,
+  // Smartness Upgrade: Scene-aware memory filtering
+  getSceneContextFromState,
+  buildSceneAwareRelevance,
+  type SceneContext,
 } from '@/services/appBrain/adaptiveContext';
 import { eventBus } from '@/services/appBrain/eventBus';
 
@@ -163,6 +167,202 @@ describe('adaptiveContext', () => {
         const sum = Object.values(sections).reduce((a, b) => a + b, 0);
         expect(sum).toBeCloseTo(1.0, 1);
       }
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SMARTNESS UPGRADE: Scene-Aware Memory Filtering
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('getSceneContextFromState', () => {
+    it('returns default context when no HUD available', () => {
+      const stateWithoutHud = {
+        ...baseState,
+        intelligence: { hud: null },
+      };
+
+      const context = getSceneContextFromState(stateWithoutHud);
+
+      expect(context.sceneType).toBeNull();
+      expect(context.location).toBeNull();
+      expect(context.pov).toBeNull();
+      expect(context.tensionLevel).toBe('medium');
+    });
+
+    it('extracts scene context from HUD', () => {
+      const stateWithScene = {
+        ...baseState,
+        intelligence: {
+          hud: {
+            ...baseState.intelligence.hud,
+            situational: {
+              ...baseState.intelligence.hud.situational,
+              currentScene: {
+                type: 'action',
+                pov: 'Seth',
+                location: 'Castle',
+              },
+              tensionLevel: 'high',
+            },
+          },
+        },
+      };
+
+      const context = getSceneContextFromState(stateWithScene);
+
+      expect(context.sceneType).toBe('action');
+      expect(context.pov).toBe('Seth');
+      expect(context.location).toBe('Castle');
+      expect(context.tensionLevel).toBe('high');
+    });
+  });
+
+  describe('buildSceneAwareRelevance', () => {
+    it('adds scene-type-specific keywords', () => {
+      const baseRelevance = { activeEntityNames: [], selectionKeywords: [] };
+      const actionContext: SceneContext = {
+        sceneType: 'action',
+        location: null,
+        pov: null,
+        tensionLevel: 'medium',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, actionContext);
+
+      // Action scenes should add combat/tension keywords
+      expect(result.selectionKeywords).toContain('conflict');
+      expect(result.selectionKeywords).toContain('tension');
+      expect(result.selectionKeywords).toContain('stakes');
+    });
+
+    it('adds dialogue-specific keywords for dialogue scenes', () => {
+      const baseRelevance = { activeEntityNames: [], selectionKeywords: [] };
+      const dialogueContext: SceneContext = {
+        sceneType: 'dialogue',
+        location: null,
+        pov: null,
+        tensionLevel: 'low',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, dialogueContext);
+
+      expect(result.selectionKeywords).toContain('relationship');
+      expect(result.selectionKeywords).toContain('conversation');
+      expect(result.selectionKeywords).toContain('voice');
+    });
+
+    it('adds tension-level keywords', () => {
+      const baseRelevance = { activeEntityNames: [], selectionKeywords: [] };
+      const highTensionContext: SceneContext = {
+        sceneType: null,
+        location: null,
+        pov: null,
+        tensionLevel: 'high',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, highTensionContext);
+
+      // High tension should boost conflict/stakes keywords
+      expect(result.selectionKeywords).toContain('conflict');
+      expect(result.selectionKeywords).toContain('stakes');
+      expect(result.selectionKeywords).toContain('climax');
+    });
+
+    it('adds location as keyword', () => {
+      const baseRelevance = { activeEntityNames: [], selectionKeywords: [] };
+      const locationContext: SceneContext = {
+        sceneType: null,
+        location: 'The Castle',
+        pov: null,
+        tensionLevel: 'medium',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, locationContext);
+
+      expect(result.selectionKeywords).toContain('the castle');
+    });
+
+    it('adds POV character to active entities', () => {
+      const baseRelevance = { activeEntityNames: ['Maria'], selectionKeywords: [] };
+      const povContext: SceneContext = {
+        sceneType: null,
+        location: null,
+        pov: 'Seth',
+        tensionLevel: 'medium',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, povContext);
+
+      expect(result.activeEntityNames).toContain('Maria');
+      expect(result.activeEntityNames).toContain('Seth');
+    });
+
+    it('preserves base relevance keywords', () => {
+      const baseRelevance = { 
+        activeEntityNames: ['TestChar'], 
+        selectionKeywords: ['custom', 'keywords'] 
+      };
+      const context: SceneContext = {
+        sceneType: 'action',
+        location: null,
+        pov: null,
+        tensionLevel: 'medium',
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, context);
+
+      expect(result.selectionKeywords).toContain('custom');
+      expect(result.selectionKeywords).toContain('keywords');
+      expect(result.activeEntityNames).toContain('TestChar');
+    });
+
+    it('deduplicates keywords', () => {
+      const baseRelevance = { 
+        activeEntityNames: [], 
+        selectionKeywords: ['conflict', 'tension'] // Already has these
+      };
+      const actionContext: SceneContext = {
+        sceneType: 'action', // Would add conflict, tension again
+        location: null,
+        pov: null,
+        tensionLevel: 'high', // Would add conflict again
+      };
+
+      const result = buildSceneAwareRelevance(baseRelevance, actionContext);
+
+      // Should not have duplicates
+      const conflictCount = result.selectionKeywords!.filter(k => k === 'conflict').length;
+      expect(conflictCount).toBe(1);
+    });
+  });
+
+  describe('buildAdaptiveContext with sceneAwareMemory', () => {
+    it('applies scene-aware filtering by default', async () => {
+      const stateWithScene = {
+        ...baseState,
+        intelligence: {
+          hud: {
+            ...baseState.intelligence.hud,
+            situational: {
+              ...baseState.intelligence.hud.situational,
+              currentScene: { type: 'dialogue', pov: 'Seth', location: 'Cafe' },
+              tensionLevel: 'low',
+            },
+          },
+        },
+      };
+
+      // Should not throw
+      const result = await buildAdaptiveContext(stateWithScene, 'p1');
+      expect(result.context).toBeDefined();
+    });
+
+    it('can disable scene-aware filtering', async () => {
+      const result = await buildAdaptiveContext(baseState, 'p1', { 
+        sceneAwareMemory: false 
+      });
+      
+      expect(result.context).toBeDefined();
     });
   });
 });

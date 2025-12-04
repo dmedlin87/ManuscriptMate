@@ -17,6 +17,7 @@ import {
   type MemoryRelevanceOptions,
 } from '../memory';
 import { ActiveModels, TokenLimits, type ModelId } from '../../config/models';
+import type { SceneType, Scene } from '../../types/intelligence';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -116,6 +117,112 @@ export type ContextProfile =
   | 'editing'        // Editing mode with selection emphasis
   | 'voice'          // Compressed for voice/low-latency
   | 'analysis_deep'; // Deep analysis with more intelligence/analysis sections
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCENE-AWARE MEMORY FILTERING (Smartness Upgrade)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Scene context for intelligent memory filtering.
+ * Used to select memories most relevant to the current narrative moment.
+ */
+export interface SceneContext {
+  /** Current scene type (action, dialogue, introspection, etc.) */
+  sceneType: SceneType | null;
+  /** Current location name from intelligence */
+  location: string | null;
+  /** Current POV character */
+  pov: string | null;
+  /** Tension level (low, medium, high) */
+  tensionLevel: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Map of scene types to memory tag preferences.
+ * Determines which memory categories are most relevant for each scene type.
+ */
+const SCENE_TYPE_MEMORY_TAGS: Record<SceneType, string[]> = {
+  action: ['conflict', 'tension', 'combat', 'chase', 'danger', 'stakes'],
+  dialogue: ['relationship', 'conversation', 'voice', 'speech', 'communication'],
+  description: ['setting', 'worldbuilding', 'atmosphere', 'location', 'environment'],
+  introspection: ['motivation', 'emotion', 'arc', 'internal', 'character', 'psychology'],
+  transition: ['pacing', 'timeline', 'continuity'],
+};
+
+/**
+ * Tension level to memory preference mapping.
+ * High tension scenes benefit from conflict/stakes memories.
+ */
+const TENSION_MEMORY_BOOST: Record<'low' | 'medium' | 'high', string[]> = {
+  low: ['setup', 'worldbuilding', 'character', 'relationship'],
+  medium: ['development', 'arc', 'plot-thread'],
+  high: ['conflict', 'stakes', 'climax', 'tension', 'danger'],
+};
+
+/**
+ * Derive scene context from AppBrainState.
+ */
+export function getSceneContextFromState(state: AppBrainState): SceneContext {
+  const hud = state.intelligence.hud;
+  
+  if (!hud) {
+    return {
+      sceneType: null,
+      location: null,
+      pov: null,
+      tensionLevel: 'medium',
+    };
+  }
+  
+  return {
+    sceneType: hud.situational.currentScene?.type || null,
+    location: hud.situational.currentScene?.location || null,
+    pov: hud.situational.currentScene?.pov || null,
+    tensionLevel: hud.situational.tensionLevel,
+  };
+}
+
+/**
+ * Build enhanced memory relevance options based on scene context.
+ * 
+ * This is the core of scene-aware memory filtering:
+ * - Adds scene-type-specific tags to boost relevant memories
+ * - Includes location and POV character tags
+ * - Adjusts based on tension level
+ */
+export function buildSceneAwareRelevance(
+  baseRelevance: MemoryRelevanceOptions,
+  sceneContext: SceneContext
+): MemoryRelevanceOptions {
+  const enhancedKeywords = [...(baseRelevance.selectionKeywords || [])];
+  
+  // Add scene-type-specific tags
+  if (sceneContext.sceneType && SCENE_TYPE_MEMORY_TAGS[sceneContext.sceneType]) {
+    const sceneTags = SCENE_TYPE_MEMORY_TAGS[sceneContext.sceneType];
+    enhancedKeywords.push(...sceneTags);
+  }
+  
+  // Add tension-level tags
+  const tensionTags = TENSION_MEMORY_BOOST[sceneContext.tensionLevel];
+  enhancedKeywords.push(...tensionTags);
+  
+  // Add location as a keyword
+  if (sceneContext.location) {
+    enhancedKeywords.push(sceneContext.location.toLowerCase());
+  }
+  
+  // Add POV character to active entities
+  const enhancedEntities = [...(baseRelevance.activeEntityNames || [])];
+  if (sceneContext.pov && !enhancedEntities.includes(sceneContext.pov)) {
+    enhancedEntities.push(sceneContext.pov);
+  }
+  
+  return {
+    ...baseRelevance,
+    activeEntityNames: enhancedEntities,
+    selectionKeywords: [...new Set(enhancedKeywords)], // Dedupe
+  };
+}
 
 /**
  * Section allocation presets for each profile.
@@ -530,6 +637,8 @@ export interface AdaptiveContextOptions {
   budget?: ContextBudget;
   /** Memory relevance filters */
   relevance?: MemoryRelevanceOptions;
+  /** Enable scene-aware memory filtering (Smartness Upgrade) */
+  sceneAwareMemory?: boolean;
 }
 
 /**
@@ -540,10 +649,17 @@ export const buildAdaptiveContext = async (
   projectId: string | null,
   options: AdaptiveContextOptions = {}
 ): Promise<AdaptiveContextResult> => {
-  const { budget = DEFAULT_BUDGET, relevance } = options;
+  const { budget = DEFAULT_BUDGET, relevance, sceneAwareMemory = true } = options;
   const sectionsIncluded: string[] = [];
   const sectionsTruncated: string[] = [];
   const sectionsOmitted: string[] = [];
+  
+  // Apply scene-aware memory filtering if enabled (Smartness Upgrade)
+  let effectiveRelevance = relevance;
+  if (sceneAwareMemory) {
+    const sceneContext = getSceneContextFromState(state);
+    effectiveRelevance = buildSceneAwareRelevance(relevance || {}, sceneContext);
+  }
   
   // Build all sections with their budgets
   const manuscriptSection = buildManuscriptSection(
@@ -562,7 +678,7 @@ export const buildAdaptiveContext = async (
     state, 
     projectId,
     Math.floor(budget.totalTokens * budget.sections.memory),
-    relevance
+    effectiveRelevance
   );
   const loreSection = buildLoreSection(
     state, 

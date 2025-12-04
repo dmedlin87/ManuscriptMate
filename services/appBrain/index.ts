@@ -53,6 +53,10 @@ export {
   PROFILE_ALLOCATIONS,
   type ContextProfile,
   type AdaptiveContextOptions,
+  // Smartness Upgrade: Scene-aware memory filtering
+  getSceneContextFromState,
+  buildSceneAwareRelevance,
+  type SceneContext,
 } from './adaptiveContext';
 
 // v1 Enhancement: Smart Context (unified entry point)
@@ -69,6 +73,28 @@ export {
 
 // Enhancement 2C: Cross-Chapter Context
 export { buildCrossChapterContext, formatCrossChapterContext } from './crossChapterContext';
+
+// Smartness Upgrade: Intelligence-Memory Bridge
+export {
+  analyzeIntelligenceAgainstMemory,
+  getHighPriorityConflicts,
+  formatConflictsForPrompt,
+  type IntelligenceConflict,
+  type BridgeAnalysisResult,
+  type BridgeOptions,
+} from './intelligenceMemoryBridge';
+
+// Smartness Upgrade: Proactive Thinker
+export {
+  ProactiveThinker,
+  getProactiveThinker,
+  startProactiveThinker,
+  stopProactiveThinker,
+  resetProactiveThinker,
+  type ThinkingResult,
+  type ThinkerConfig,
+  type ThinkerState,
+} from './proactiveThinker';
 
 export interface AppBrainValue {
   state: AppBrainState;

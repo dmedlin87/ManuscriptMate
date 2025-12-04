@@ -22,6 +22,12 @@ export {
   type UseManuscriptIntelligenceOptions,
   type UseManuscriptIntelligenceReturn,
 } from './hooks/useManuscriptIntelligence';
+export {
+  useSmartnessPipeline,
+  createIntelligenceCallback,
+  type SmartnessPipelineConfig,
+  type SmartnessPipelineResult,
+} from './hooks/useSmartnessPipeline';
 
 // Utils
 export { findQuoteRange, enrichAnalysisWithPositions, extractClickableIssues } from './utils/textLocator';
