@@ -75,7 +75,7 @@ A **unified agent layer** that has complete awareness of the application state�
 │  │                    IndexedDB (Dexie)                             ││
 │  │  • projects: Project metadata, settings                         ││
 │  │  • chapters: Content, branches, analysis cache                   ││
-│  │  • memories: Agent memory notes (facts, issues, preferences)     ││
+│  │  • memories: Agent memory notes (facts, issues, preferences, plans incl. bedside-note) ││
 │  │  • goals: Agent goals and progress per project                   ││
 │  │  • watchedEntities: Characters/elements to proactively monitor   ││
 │  └─────────────────────────────────────────────────────────────────┘│

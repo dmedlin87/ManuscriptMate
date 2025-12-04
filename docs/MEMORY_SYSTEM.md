@@ -164,20 +164,21 @@ Defined primarily in `services/memory/index.ts`.
 
 These helpers are used heavily by AppBrain context builders and the agent tools:
 
-- **`searchMemoriesByTags(projectId: string | null, tags: string[]): Promise<MemoryNote[]>`**  
-  - Tag-based lookup, used by observers and tools.
+- **`searchMemoriesByTags(tags: string[], options?: { projectId?: string; limit?: number }): Promise<MemoryNote[]>`**  
+  - Tag-based lookup, with optional project scoping and result limiting.
 
-- **`getMemoriesForContext(projectId: string | null): Promise<MemoryNote[]>`**  
-  - Fetches candidate memories for inclusion in prompts.
+- **`getMemoriesForContext(projectId: string, options?: { limit?: number }): Promise<{ author: MemoryNote[]; project: MemoryNote[] }>`**  
+  - Fetches candidate **author** and **project** memories for inclusion in prompts.
 
-- **`getRelevantMemoriesForContext(projectId: string | null, options: MemoryRelevanceOptions): Promise<MemoryNote[]>`**  
-  - Filters memories by active entities, selection keywords, and active chapter.
+- **`getRelevantMemoriesForContext(projectId: string, relevance?: MemoryRelevanceOptions, options?: { limit?: number }): Promise<{ author: MemoryNote[]; project: MemoryNote[] }>`**  
+  - Filters project memories by active entities, selection keywords, and active chapter while always returning all author memories.
 
-- **`getActiveGoals(projectId: string | null): Promise<AgentGoal[]>`**  
+- **`getActiveGoals(projectId: string): Promise<AgentGoal[]>`**  
   - Returns goals with non-terminal statuses for the current project.
 
 - **`formatMemoriesForPrompt(...)`**, **`formatGoalsForPrompt(...)`**  
-  - Condense memories/goals into compact, ordered text blocks for inclusion in AI context.
+  - Condense memories/goals into compact, ordered text blocks for inclusion in AI context.  
+  - The memory formatter receives project memories **with the bedside-note planning memory already ordered first** (see §6.1).
 
 These functions are imported from `services/appBrain/contextBuilder.ts` and `services/appBrain/adaptiveContext.ts` to construct the memory sections of the prompt.
 
@@ -280,6 +281,22 @@ In `services/appBrain/adaptiveContext.ts`:
     - Computes relevance signals (active entities, selection keywords, active chapter).  
     - Calls `buildAdaptiveContext`, which pulls in **relevant** memories and goals.
 
+- **Bedside-note planning memory (Phase 1)**
+  - `buildAdaptiveContext` ensures that each project has a **single persistent planning note**:
+    - Implemented as a `MemoryNote` with `type: 'plan'`, `scope: 'project'`, and `topicTags` including `meta:bedside-note`.
+    - Created automatically the first time smart context is built for a project (if missing).
+  - Before formatting, the memory section reorders project memories so that any bedside-note planning memory appears **first** in the project memory list.
+  - This note acts as the project's "bedside note"—a short, evolving plan that Phase 2 builds on.
+
+- **Bedside-note evolution (Phase 2, thin slice)**
+  - The memory chains module (`services/memory/chains.ts`) exports helpers that specialize `evolveMemory` for bedside-note planning:
+    - `getOrCreateBedsideNote(projectId)` — finds the existing bedside-note `MemoryNote` for the project (tagged `meta:bedside-note`) or creates it with default text if missing.
+    - `evolveBedsideNote(projectId, newText, options?)` — uses `evolveMemory` to add a new version to the bedside-note chain, preserving the earlier versions and tagging changes with a `changeReason`.
+  - Evolution is currently driven by two main flows:
+    - **Analysis observation:** `useMemoryIntelligence` (in `features/agent/hooks/useMemoryIntelligence.ts`) calls `observeAnalysisResults`, then pulls `getActiveGoals(projectId)` and synthesizes a concise bedside-note update (story summary, top concerns, key plot issues, and active goals). It then calls `evolveBedsideNote(projectId, planText, { changeReason: 'analysis_update' })`.
+    - **Proactive thinking:** `ProactiveThinker` (in `services/appBrain/proactiveThinker.ts`) runs in the background on AppBrain events (including `ANALYSIS_COMPLETED`). When the LLM reports a **significant** thinking result, it combines the top proactive suggestions with `getImportantReminders(projectId)` into a short plan and calls `evolveBedsideNote(projectId, planText, { changeReason: 'proactive_thinking' })`.
+  - This creates an **Evolving Memory chain** for the bedside note over time, so the agent always has a compact, up-to-date planning summary that reflects recent analysis, goals, and proactive reminders.
+
 ### 6.2 ToolExecutor Integration
 
 In `services/gemini/toolExecutor.ts`:
@@ -365,3 +382,7 @@ For a high-level view of how memory fits into the overall agent architecture, se
 - `docs/AGENT_ARCHITECTURE.md`
 - `docs/APP_BRAIN_FLOW.md`
 - `docs/ARCHITECTURE.md`
+
+For the full roadmap of bedside-note planning memory development, see:
+
+- `docs/BEDSIDE_NOTE_ROADMAP.md`

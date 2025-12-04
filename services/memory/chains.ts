@@ -6,8 +6,8 @@
  */
 
 import { db } from '../db';
-import { MemoryNote, UpdateMemoryNoteInput } from './types';
-import { createMemory, getMemory, updateMemory } from './index';
+import { MemoryNote, UpdateMemoryNoteInput, BEDSIDE_NOTE_TAG, BEDSIDE_NOTE_DEFAULT_TAGS } from './types';
+import { createMemory, getMemory, updateMemory, getMemories } from './index';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -145,6 +145,45 @@ export const evolveMemory = async (
   }
   
   return newMemory;
+};
+
+export const getOrCreateBedsideNote = async (
+  projectId: string,
+): Promise<MemoryNote> => {
+  const existing = await getMemories({
+    scope: 'project',
+    projectId,
+    type: 'plan',
+    topicTags: [BEDSIDE_NOTE_TAG],
+    limit: 1,
+  });
+
+  if (existing.length > 0) {
+    return existing[0];
+  }
+
+  return createMemory({
+    scope: 'project',
+    projectId,
+    type: 'plan',
+    text:
+      'Project planning notes for this manuscript. This note will be updated over time with key goals, concerns, and constraints.',
+    topicTags: BEDSIDE_NOTE_DEFAULT_TAGS,
+    importance: 0.85,
+  });
+};
+
+export const evolveBedsideNote = async (
+  projectId: string,
+  newText: string,
+  options: { changeReason?: string } = {},
+): Promise<MemoryNote> => {
+  const base = await getOrCreateBedsideNote(projectId);
+  return evolveMemory(base.id, newText, {
+    changeType: 'update',
+    changeReason: options.changeReason,
+    keepOriginal: true,
+  });
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

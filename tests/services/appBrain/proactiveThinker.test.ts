@@ -31,6 +31,10 @@ vi.mock('@/services/gemini/client', () => ({
   },
 }));
 
+const memoryMocks = vi.hoisted(() => ({
+  evolveBedsideNote: vi.fn(),
+}));
+
 // Mock the intelligence memory bridge
 vi.mock('@/services/appBrain/intelligenceMemoryBridge', () => ({
   getHighPriorityConflicts: vi.fn(() => Promise.resolve([])),
@@ -40,6 +44,11 @@ vi.mock('@/services/appBrain/intelligenceMemoryBridge', () => ({
 // Mock the memory proactive service
 vi.mock('@/services/memory/proactive', () => ({
   getImportantReminders: vi.fn(() => Promise.resolve([])),
+}));
+
+// Mock the core memory service bedside-note evolution
+vi.mock('@/services/memory', () => ({
+  evolveBedsideNote: (...args: any[]) => memoryMocks.evolveBedsideNote(...args),
 }));
 
 describe('proactiveThinker', () => {
@@ -114,6 +123,7 @@ describe('proactiveThinker', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     resetProactiveThinker();
+    memoryMocks.evolveBedsideNote.mockResolvedValue({} as any);
   });
 
   afterEach(() => {

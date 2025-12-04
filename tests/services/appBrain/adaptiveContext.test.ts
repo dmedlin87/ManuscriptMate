@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   buildAdaptiveContext,
   DEFAULT_BUDGET,
@@ -15,6 +15,7 @@ import {
   type SceneContext,
 } from '@/services/appBrain/adaptiveContext';
 import { eventBus } from '@/services/appBrain/eventBus';
+import * as memoryService from '@/services/memory';
 
 vi.mock('@/services/appBrain/eventBus', () => ({
   eventBus: {
@@ -24,6 +25,10 @@ vi.mock('@/services/appBrain/eventBus', () => ({
 }));
 
 describe('adaptiveContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   const baseState: any = {
     manuscript: {
       projectTitle: 'Novel',
@@ -89,6 +94,119 @@ describe('adaptiveContext', () => {
       const result = await buildAdaptiveContext(baseState, 'p1');
 
       expect(result.budget.totalTokens).toBe(DEFAULT_BUDGET.totalTokens);
+    });
+
+    it('ensures a bedside-note planning memory exists for the project', async () => {
+      const getMemoriesSpy = vi
+        .spyOn(memoryService, 'getMemories')
+        .mockResolvedValueOnce([] as any); // No existing bedside note
+
+      const createMemorySpy = vi
+        .spyOn(memoryService, 'createMemory')
+        .mockResolvedValueOnce({
+          id: 'bedside-1',
+          scope: 'project',
+          projectId: 'p1',
+          type: 'plan',
+          text: 'Project planning notes for this manuscript. This note will be updated over time with key goals, concerns, and constraints.',
+          topicTags: ['meta:bedside-note', 'planner:global', 'arc:story'],
+          importance: 0.85,
+          createdAt: Date.now(),
+        } as any);
+
+      vi
+        .spyOn(memoryService, 'getMemoriesForContext')
+        .mockResolvedValueOnce({ author: [], project: [] } as any);
+      vi
+        .spyOn(memoryService, 'getActiveGoals')
+        .mockResolvedValueOnce([] as any);
+
+      vi
+        .spyOn(memoryService, 'formatMemoriesForPrompt')
+        .mockReturnValue('[MEM]');
+      vi
+        .spyOn(memoryService, 'formatGoalsForPrompt')
+        .mockReturnValue('');
+
+      await buildAdaptiveContext(baseState, 'p1');
+
+      expect(getMemoriesSpy).toHaveBeenCalledWith({
+        scope: 'project',
+        projectId: 'p1',
+        type: 'plan',
+        topicTags: ['meta:bedside-note'],
+        limit: 1,
+      });
+      expect(createMemorySpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('prioritizes bedside-note memories at the top of project memory list', async () => {
+      // Simulate that a bedside-note plan already exists so ensureBedsideNoteExists is a no-op
+      vi
+        .spyOn(memoryService, 'getMemories')
+        .mockResolvedValueOnce([
+          {
+            id: 'bedside-1',
+            scope: 'project',
+            projectId: 'p1',
+            type: 'plan',
+            text: 'Bedside planning note',
+            topicTags: ['meta:bedside-note', 'planner:global'],
+            importance: 0.9,
+            createdAt: Date.now(),
+          },
+        ] as any);
+
+      const memoriesForContext = {
+        author: [],
+        project: [
+          {
+            id: 'other-1',
+            scope: 'project',
+            projectId: 'p1',
+            type: 'fact',
+            text: 'Some other project fact',
+            topicTags: ['general'],
+            importance: 0.5,
+            createdAt: Date.now(),
+          },
+          {
+            id: 'bedside-1',
+            scope: 'project',
+            projectId: 'p1',
+            type: 'plan',
+            text: 'Bedside planning note',
+            topicTags: ['meta:bedside-note', 'planner:global'],
+            importance: 0.9,
+            createdAt: Date.now(),
+          },
+        ],
+      } as any;
+
+      vi
+        .spyOn(memoryService, 'getRelevantMemoriesForContext')
+        .mockResolvedValueOnce(memoriesForContext);
+      vi
+        .spyOn(memoryService, 'getActiveGoals')
+        .mockResolvedValueOnce([] as any);
+
+      const formatMemoriesForPromptSpy = vi
+        .spyOn(memoryService, 'formatMemoriesForPrompt')
+        .mockImplementation(({ project }) => project.map((m: any) => m.id).join(','));
+      vi
+        .spyOn(memoryService, 'formatGoalsForPrompt')
+        .mockReturnValue('');
+
+      await buildAdaptiveContext(baseState, 'p1', {
+        budget: DEFAULT_BUDGET,
+      });
+
+      expect(formatMemoriesForPromptSpy).toHaveBeenCalledTimes(1);
+      const [passedMemories] = formatMemoriesForPromptSpy.mock.calls[0];
+      expect((passedMemories as any).project.map((m: any) => m.id)).toEqual([
+        'bedside-1',
+        'other-1',
+      ]);
     });
   });
 

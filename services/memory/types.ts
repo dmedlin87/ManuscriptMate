@@ -54,7 +54,6 @@ export interface MemoryNote {
   
   /** Creation timestamp (epoch ms) */
   createdAt: number;
-  
   /** Last update timestamp (epoch ms) */
   updatedAt?: number;
   
@@ -163,3 +162,10 @@ export interface ListMemoryNotesParams {
 export type CreateGoalInput = Omit<AgentGoal, 'id' | 'createdAt' | 'updatedAt' | 'progress'> & {
   progress?: number;
 };
+
+export const BEDSIDE_NOTE_TAG = 'meta:bedside-note';
+export const BEDSIDE_NOTE_DEFAULT_TAGS = [
+  BEDSIDE_NOTE_TAG,
+  'planner:global',
+  'arc:story',
+];

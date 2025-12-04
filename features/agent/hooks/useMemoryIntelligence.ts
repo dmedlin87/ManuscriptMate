@@ -23,6 +23,8 @@ import {
   ReinforcementEvent,
   ConsolidationResult,
 } from '@/services/memory/consolidation';
+import { getActiveGoals, evolveBedsideNote } from '@/services/memory';
+import type { AgentGoal } from '@/services/memory/types';
 import { AnalysisResult } from '@/types';
 import { ManuscriptIntelligence } from '@/types/intelligence';
 
@@ -70,6 +72,51 @@ export interface UseMemoryIntelligenceResult {
   refreshHealthStats: () => Promise<void>;
 }
 
+function buildBedsidePlanText(
+  analysis: AnalysisResult | null,
+  goals: AgentGoal[],
+): string | null {
+  if (!analysis && goals.length === 0) {
+    return null;
+  }
+
+  const lines: string[] = [];
+
+  if (analysis) {
+    if (analysis.summary) {
+      lines.push(`Current story summary: ${analysis.summary.slice(0, 240)}`);
+    }
+
+    if (analysis.weaknesses && analysis.weaknesses.length > 0) {
+      lines.push('Top concerns:');
+      for (const weakness of analysis.weaknesses.slice(0, 3)) {
+        lines.push(`- ${weakness}`);
+      }
+    }
+
+    if (analysis.plotIssues && analysis.plotIssues.length > 0) {
+      lines.push('Key plot issues to watch:');
+      for (const issue of analysis.plotIssues.slice(0, 3)) {
+        lines.push(`- ${issue.issue}`);
+      }
+    }
+  }
+
+  if (goals.length > 0) {
+    lines.push('Active goals:');
+    for (const goal of goals.slice(0, 3)) {
+      const progressPart = typeof goal.progress === 'number' ? ` [${goal.progress}%]` : '';
+      lines.push(`- ${goal.title}${progressPart}`);
+    }
+  }
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return lines.join('\n');
+}
+
 export function useMemoryIntelligence(
   options: UseMemoryIntelligenceOptions
 ): UseMemoryIntelligenceResult {
@@ -100,6 +147,17 @@ export function useMemoryIntelligence(
     try {
       const result = await observeAnalysisResults(analysis, { projectId });
       setLastObservation(result);
+
+      try {
+        const goals = await getActiveGoals(projectId);
+        const planText = buildBedsidePlanText(analysis, goals);
+        if (planText) {
+          await evolveBedsideNote(projectId, planText, { changeReason: 'analysis_update' });
+        }
+      } catch (e) {
+        console.warn('[useMemoryIntelligence] Failed to evolve bedside note:', e);
+      }
+
       return result;
     } finally {
       setIsObserving(false);

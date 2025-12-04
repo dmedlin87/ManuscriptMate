@@ -14,6 +14,10 @@ import {
   getActiveGoals,
   formatMemoriesForPrompt,
   formatGoalsForPrompt,
+  getMemories,
+  createMemory,
+  BEDSIDE_NOTE_TAG,
+  BEDSIDE_NOTE_DEFAULT_TAGS,
   type MemoryRelevanceOptions,
 } from '../memory';
 import { ActiveModels, TokenLimits, type ModelId } from '../../config/models';
@@ -501,6 +505,30 @@ const buildAnalysisSection = (state: AppBrainState, maxTokens: number): ContextS
   };
 };
 
+const ensureBedsideNoteExists = async (projectId: string): Promise<void> => {
+  const existing = await getMemories({
+    scope: 'project',
+    projectId,
+    type: 'plan',
+    topicTags: [BEDSIDE_NOTE_TAG],
+    limit: 1,
+  });
+
+  if (existing.length > 0) {
+    return;
+  }
+
+  await createMemory({
+    scope: 'project',
+    projectId,
+    type: 'plan',
+    text:
+      'Project planning notes for this manuscript. This note will be updated over time with key goals, concerns, and constraints.',
+    topicTags: BEDSIDE_NOTE_DEFAULT_TAGS,
+    importance: 0.85,
+  });
+};
+
 const buildMemorySection = async (
   state: AppBrainState, 
   projectId: string | null,
@@ -521,6 +549,8 @@ const buildMemorySection = async (
   }
   
   try {
+    await ensureBedsideNoteExists(projectId as string);
+    
     // Use relevance-filtered memories if relevance options provided
     const memoriesPromise = relevance && (
       relevance.activeEntityNames?.length || relevance.selectionKeywords?.length
@@ -532,10 +562,22 @@ const buildMemorySection = async (
       memoriesPromise,
       getActiveGoals(projectId),
     ]);
-    
+
     const maxChars = maxTokens * 4;
-    
-    const formattedMemories = formatMemoriesForPrompt(memories, { 
+
+    const bedsideNotes = memories.project.filter(note => 
+      note.topicTags.includes(BEDSIDE_NOTE_TAG)
+    );
+    const otherProjectNotes = memories.project.filter(note => 
+      !note.topicTags.includes(BEDSIDE_NOTE_TAG)
+    );
+
+    const prioritizedMemories = {
+      author: memories.author,
+      project: [...bedsideNotes, ...otherProjectNotes],
+    };
+
+    const formattedMemories = formatMemoriesForPrompt(prioritizedMemories, { 
       maxLength: Math.floor(maxChars * 0.7) 
     });
     if (formattedMemories) {

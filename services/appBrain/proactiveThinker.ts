@@ -15,6 +15,7 @@ import type { AppEvent, AppBrainState } from './types';
 import { buildCompressedContext } from './contextBuilder';
 import { getHighPriorityConflicts, formatConflictsForPrompt } from './intelligenceMemoryBridge';
 import { getImportantReminders, type ProactiveSuggestion } from '../memory/proactive';
+import { evolveBedsideNote } from '../memory';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -283,18 +284,46 @@ export class ProactiveThinker {
       
       const text = response.text || '';
       const result = this.parseThinkingResult(text);
-      
-      // Update state
+
       this.state.lastThinkTime = Date.now();
       this.state.suggestionsGenerated += result.suggestions.length;
-      
-      // Emit suggestions
+
       if (this.onSuggestion) {
         for (const suggestion of result.suggestions) {
           this.onSuggestion(suggestion);
         }
       }
-      
+
+      if (this.projectId && result.significant) {
+        try {
+          const reminders = await getImportantReminders(this.projectId);
+          const lines: string[] = [];
+
+          if (result.suggestions.length > 0) {
+            lines.push('Proactive opportunities to focus on next:');
+            for (const suggestion of result.suggestions.slice(0, 3)) {
+              lines.push(`- ${suggestion.title}: ${suggestion.description}`);
+            }
+          }
+
+          if (reminders.length > 0) {
+            lines.push('Important unresolved issues and stalled goals:');
+            for (const reminder of reminders.slice(0, 3)) {
+              lines.push(`- ${reminder.title}: ${reminder.description}`);
+            }
+          }
+
+          const planText = lines.join('\n');
+          if (planText.trim()) {
+            await evolveBedsideNote(this.projectId, planText, {
+              changeReason: 'proactive_thinking',
+            });
+          }
+        } catch (e) {
+          console.warn('[ProactiveThinker] Failed to evolve bedside note:', e);
+        }
+      }
+
       return {
         ...result,
         thinkingTime: Date.now() - startTime,

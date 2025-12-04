@@ -184,6 +184,19 @@ Memory tools are defined in `agentTools.ts` and routed by `toolExecutor.ts` to t
 
 These tools operate primarily on the **Dexie-backed memory tables** (`memories`, `goals`, `watchedEntities`) and are further described in `docs/MEMORY_SYSTEM.md`.
 
+In addition, the AppBrain smart context builder maintains a **bedside-note planning memory** per project:
+
+- Implemented as a `MemoryNote` with `type: 'plan'`, `scope: 'project'`, and a `topicTags` set that includes `meta:bedside-note`.
+- Created automatically when smart agent context is first built for a project (if missing).
+- Reordered to appear **first** in the project memory block of the `[AGENT MEMORY]` section, acting as the project's persistent "bedside note" for long-term planning.
+
+Behind the scenes, this bedside note now participates in a **memory chain**:
+
+- `useMemoryIntelligence` observes fresh analysis results and active goals, then calls a specialized helper (`evolveBedsideNote`) to update the bedside note with a short plan summary.
+- `ProactiveThinker` combines proactive suggestions with important reminders and also calls `evolveBedsideNote` to keep the bedside plan aligned with what the agent thinks should happen next.
+
+This bedside note is not a separate tool; it is just a specially tagged, **evolving** `MemoryNote` that can still be read and updated via the normal memory tools (e.g. `search_memory`, `update_memory_note`).
+
 ---
 
 ## 3. Tool Sets: Text vs Voice vs Quick

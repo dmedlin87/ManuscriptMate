@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   reinforceMemory: vi.fn(),
   getMemoryHealthStats: vi.fn(),
   subscribe: vi.fn(),
+  getActiveGoals: vi.fn(),
+  evolveBedsideNote: vi.fn(),
 }));
 
 type MockObservationResult = {
@@ -33,6 +35,11 @@ vi.mock('@/services/memory/consolidation', () => ({
   reinforceMemory: (...args: any[]) => mocks.reinforceMemory(...args),
   reinforceMemories: vi.fn(),
   getMemoryHealthStats: (...args: any[]) => mocks.getMemoryHealthStats(...args),
+}));
+
+vi.mock('@/services/memory', () => ({
+  getActiveGoals: (...args: any[]) => mocks.getActiveGoals(...args),
+  evolveBedsideNote: (...args: any[]) => mocks.evolveBedsideNote(...args),
 }));
 
 describe('useMemoryIntelligence', () => {
@@ -194,5 +201,48 @@ describe('useMemoryIntelligence', () => {
 
     expect(reinforced).toBe(true);
     expect(mocks.reinforceMemory).toHaveBeenCalledWith({ memoryId: 'memory-1', reason: 'manual' });
+  });
+
+  it('evolves the bedside-note plan after observing analysis for a project', async () => {
+    const analysis: any = {
+      summary: 'Story so far',
+      weaknesses: ['Pacing is uneven'],
+      plotIssues: [{ issue: 'Unclear motivation in Act 2' }],
+    };
+
+    mocks.getActiveGoals.mockResolvedValueOnce([
+      {
+        id: 'goal-1',
+        projectId: 'project-1',
+        title: 'Tighten pacing',
+        status: 'active',
+        progress: 25,
+        createdAt: Date.now(),
+      },
+    ]);
+    mocks.evolveBedsideNote.mockResolvedValueOnce({} as any);
+
+    const { result } = renderHook(() =>
+      useMemoryIntelligence({
+        projectId: 'project-1',
+        autoObserveEnabled: false,
+        consolidateOnMount: false,
+        consolidationIntervalMs: 0,
+      })
+    );
+
+    await act(async () => {
+      await result.current.observeAnalysis(analysis);
+    });
+
+    expect(mocks.observeAnalysisResults).toHaveBeenCalledWith(analysis, { projectId: 'project-1' });
+    expect(mocks.getActiveGoals).toHaveBeenCalledWith('project-1');
+    expect(mocks.evolveBedsideNote).toHaveBeenCalledTimes(1);
+    const [projectIdArg, planText, options] = mocks.evolveBedsideNote.mock.calls[0];
+    expect(projectIdArg).toBe('project-1');
+    expect(typeof planText).toBe('string');
+    expect(planText).toContain('Current story summary:');
+    expect(planText).toContain('Top concerns:');
+    expect(options).toEqual({ changeReason: 'analysis_update' });
   });
 });
