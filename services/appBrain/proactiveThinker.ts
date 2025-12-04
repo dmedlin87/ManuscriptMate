@@ -52,8 +52,9 @@ export interface ThinkerState {
   lastThinkTime: number;
   /** Number of suggestions generated this session */
   suggestionsGenerated: number;
-  /** Batched events awaiting processing */
   pendingEvents: AppEvent[];
+  editDeltaAccumulator: number;
+  lastEditEvolveAt: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,9 +127,11 @@ export class ProactiveThinker {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.state = {
       isThinking: false,
-      lastThinkTime: 0,
       suggestionsGenerated: 0,
+      lastThinkTime: 0,
       pendingEvents: [],
+      editDeltaAccumulator: 0,
+      lastEditEvolveAt: 0,
     };
   }
 
@@ -199,6 +202,72 @@ export class ProactiveThinker {
   // ───────────────────────────────────────────────────────────────────────────
 
   private handleEvent(event: AppEvent): void {
+    // Opportunistic bedside-note updates for high-signal events
+    if (this.projectId && this.getState) {
+      const state = this.getState();
+      const projectId = state.manuscript.projectId;
+
+      // Chapter transitions → evolve bedside with immediate context
+      if (event.type === 'CHAPTER_CHANGED' && event.payload?.chapterId) {
+        const issues = event.payload.issues ?? [];
+        const watched = event.payload.watchedEntities ?? [];
+        const lines: string[] = [];
+        lines.push(`Now in chapter: "${event.payload.title}"`);
+        if (issues.length > 0) {
+          lines.push('Chapter issues to watch:');
+          for (const issue of issues.slice(0, 3)) {
+            const severity = issue.severity ? ` (${issue.severity})` : '';
+            lines.push(`- ${issue.description}${severity}`);
+          }
+        }
+        if (watched.length > 0) {
+          lines.push('Watched entities in this chapter:');
+          for (const entity of watched.slice(0, 5)) {
+            const priority = entity.priority ? ` [${entity.priority}]` : '';
+            lines.push(`- ${entity.name}${priority}${entity.reason ? ` — ${entity.reason}` : ''}`);
+          }
+        }
+        const planText = lines.join('\n');
+        if (planText.trim()) {
+          evolveBedsideNote(projectId, planText, {
+            changeReason: 'chapter_transition',
+            chapterId: event.payload.chapterId,
+            extraTags: [`chapter:${event.payload.chapterId}`],
+          }).catch(e => console.warn('[ProactiveThinker] Chapter transition bedside update failed:', e));
+        }
+      }
+
+      // Significant edit bursts → evolve bedside with a reminder to recheck continuity
+      if (event.type === 'TEXT_CHANGED') {
+        const delta = event.payload?.delta ?? 0;
+        this.state.editDeltaAccumulator += Math.abs(delta);
+        const EDIT_THRESHOLD = 500;
+        const EDIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+        const now = Date.now();
+        if (
+          this.state.editDeltaAccumulator >= EDIT_THRESHOLD &&
+          now - this.state.lastEditEvolveAt > EDIT_COOLDOWN_MS
+        ) {
+          this.state.editDeltaAccumulator = 0;
+          this.state.lastEditEvolveAt = now;
+
+          const activeChapter = state.manuscript.chapters.find(
+            ch => ch.id === state.manuscript.activeChapterId
+          );
+          const chapterLine = activeChapter ? ` in "${activeChapter.title}"` : '';
+          const planText = `Significant edits detected${chapterLine}. Recheck continuity, goals, and conflicts.`;
+          evolveBedsideNote(projectId, planText, {
+            changeReason: 'significant_edit',
+            chapterId: state.manuscript.activeChapterId ?? undefined,
+            extraTags: [
+              ...(state.manuscript.activeChapterId ? [`chapter:${state.manuscript.activeChapterId}`] : []),
+              'edit:significant',
+            ],
+          }).catch(e => console.warn('[ProactiveThinker] Significant edit bedside update failed:', e));
+        }
+      }
+    }
+
     // Add to pending events
     this.state.pendingEvents.push(event);
     
