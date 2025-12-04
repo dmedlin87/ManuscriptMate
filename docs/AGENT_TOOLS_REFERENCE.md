@@ -4,11 +4,11 @@ This document explains how the omniscient agent in Quill AI issues tool calls, h
 
 At a high level:
 
-- **Tool definitions (API schema):** `services/gemini/agentTools.ts` Function declarations grouped by category (navigation, editing, analysis, UI, knowledge, generation, memory).
-- **Tool execution:** `services/gemini/toolExecutor.ts` Maps tool names to **AppBrain actions** and the **agent memory service**.
-- **Command layer:** `services/commands/*.ts` and `services/commands/registry.ts` Provide undo-aware commands that operate on AppBrain + editor state.
-- **AppBrain state:** `services/appBrain/index.ts` Aggregates manuscript, intelligence, analysis, lore, UI, and session state.
-- **UI entry point:** `features/agent/hooks/useAgentOrchestrator.ts` Creates Gemini chat sessions with `ALL_AGENT_TOOLS` / `VOICE_SAFE_TOOLS` and runs the tool loop.
+- **Tool definitions (API schema):** `services/gemini/agentTools.ts` — function declarations grouped by category (navigation, editing, analysis, UI, knowledge, generation, memory).
+- **Tool execution:** `services/gemini/toolExecutor.ts` — maps tool names to **AppBrain actions** and the **agent memory service**.
+- **Command layer:** `services/commands/*.ts` and `services/commands/registry.ts` — provide undo-aware commands that operate on AppBrain + editor state.
+- **AppBrain state:** `services/appBrain/index.ts` — aggregates manuscript, intelligence, analysis, lore, UI, and session state.
+- **UI entry point:** `features/agent/hooks/useAgentOrchestrator.ts` — creates Gemini chat sessions with `ALL_AGENT_TOOLS` / `VOICE_SAFE_TOOLS` and runs the tool loop.
 
 ---
 

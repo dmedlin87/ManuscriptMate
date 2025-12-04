@@ -12,6 +12,7 @@ Related docs:
 - [Omniscient Agent Architecture](./AGENT_ARCHITECTURE.md)
 - [App Brain, Memory, and Intelligence Flow](./APP_BRAIN_FLOW.md)
 - [Token limits and analysis truncation](./token-limits.md)
+ - [Deterministic Intelligence Engine](./INTELLIGENCE_ENGINE.md)
 
 ## 1. State Hierarchy
 

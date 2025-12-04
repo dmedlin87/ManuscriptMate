@@ -11,12 +11,12 @@ It bridges:
 
 Key code:
 
-- `services/db.ts` Dexie schema for `memories`, `goals`, `watchedEntities`.
-- `services/memory/index.ts` Core memory service (CRUD + contextual retrieval helpers).
-- `services/memory/autoObserver.ts` Creates memories from analysis/intelligence.
-- `services/memory/sessionTracker.ts` Tracks memories created within the current chat session.
-- `services/appBrain/contextBuilder.ts` & `services/appBrain/adaptiveContext.ts` Pull relevant memories/goals into prompts.
-- `services/gemini/toolExecutor.ts` Routes memory tools to the memory service.
+- `services/db.ts` — Dexie schema for `memories`, `goals`, `watchedEntities`.
+- `services/memory/index.ts` — core memory service (CRUD + contextual retrieval helpers).
+- `services/memory/autoObserver.ts` — creates memories from analysis/intelligence.
+- `services/memory/sessionTracker.ts` — tracks memories created within the current chat session.
+- `services/appBrain/contextBuilder.ts` & `services/appBrain/adaptiveContext.ts` — pull relevant memories/goals into prompts.
+- `services/gemini/toolExecutor.ts` — routes memory tools to the memory service.
 
 ---
 
@@ -351,7 +351,7 @@ You should consider using or extending the memory system when:
 
 When changing the memory system:
 
-- Keep `services/db.ts` schema changes **backwards-compatible** (add a new version, donf break v1/v2).  
+- Keep `services/db.ts` schema changes **backwards-compatible** (add a new version, don't break v1/v2).  
 - Update any relevant docs:
   - This file (`MEMORY_SYSTEM.md`).
   - `APP_BRAIN_FLOW.md` if the flow changes.

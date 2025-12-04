@@ -7,6 +7,7 @@ const {
   mockSendMessage,
   mockUseAppBrain,
   mockExecuteAgentToolCall,
+  mockGetSmartAgentContext,
   brainValue,
 } = vi.hoisted(() => {
   const mockSendMessage = vi.fn();
@@ -77,11 +78,31 @@ const {
     message: 'tool-ok',
   }));
 
+  const mockGetSmartAgentContext = vi.fn(async () => ({
+    context: 'SMART-CONTEXT',
+    tokenCount: 100,
+    sectionsIncluded: ['manuscript'],
+    sectionsTruncated: [],
+    sectionsOmitted: [],
+    budget: {
+      totalTokens: 8000,
+      sections: {
+        manuscript: 0.2,
+        intelligence: 0.2,
+        analysis: 0.2,
+        memory: 0.2,
+        lore: 0.1,
+        history: 0.1,
+      },
+    },
+  }));
+
   return {
     mockCreateAgentSession,
     mockSendMessage,
     mockUseAppBrain,
     mockExecuteAgentToolCall,
+    mockGetSmartAgentContext,
     brainValue,
   };
 });
@@ -104,6 +125,7 @@ vi.mock('@/services/appBrain', () => ({
     getChangeLog: vi.fn(() => []),
     subscribeForOrchestrator: vi.fn(() => () => {}),
   },
+  getSmartAgentContext: mockGetSmartAgentContext,
 }));
 
 vi.mock('@/features/settings', () => ({
@@ -147,6 +169,13 @@ describe('useAgentOrchestrator', () => {
     await act(async () => {
       await result.current.sendMessage('Help me',);
     });
+
+    expect(mockGetSmartAgentContext).toHaveBeenCalledTimes(1);
+    expect(mockGetSmartAgentContext).toHaveBeenCalledWith(
+      brainValue.state,
+      'p1',
+      expect.objectContaining({ mode: 'text', queryType: 'general' }),
+    );
 
     await waitFor(() => {
       expect(result.current.state.status).toBe('idle');

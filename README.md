@@ -54,6 +54,7 @@ All project documentation lives in the [`docs/`](./docs/) folder:
   - **[AGENT_ARCHITECTURE.md](./docs/AGENT_ARCHITECTURE.md)** — Omniscient agent + App Brain design and migration plan.
   - **[AGENT_TOOLS_REFERENCE.md](./docs/AGENT_TOOLS_REFERENCE.md)** — Agent tools, commands, and how to add new tools.
   - **[APP_BRAIN_FLOW.md](./docs/APP_BRAIN_FLOW.md)** — Mermaid map of how the App Brain, memory, and intelligence layers interact.
+  - **[INTELLIGENCE_ENGINE.md](./docs/INTELLIGENCE_ENGINE.md)** — Deterministic manuscript indexing, HUD, and intelligence signals.
 - **Testing & coverage**
   - **[TESTING.md](./docs/TESTING.md)** — Test strategy, CI flow, and local commands.
   - **[TEST_COVERAGE.md](./docs/TEST_COVERAGE.md)** — Auto-generated coverage snapshot.

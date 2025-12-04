@@ -16,7 +16,7 @@ import { useAppBrain } from '@/features/core';
 import { ChatMessage } from '@/types';
 import { Persona, DEFAULT_PERSONAS } from '@/types/personas';
 import { useSettingsStore } from '@/features/settings';
-import { emitToolExecuted, eventBus } from '@/services/appBrain';
+import { emitToolExecuted, eventBus, getSmartAgentContext } from '@/services/appBrain';
 import type { AppEvent } from '@/services/appBrain';
 import { runAgentToolLoop, AgentToolLoopModelResult } from '@/services/core/agentToolLoop';
 import {
@@ -281,8 +281,9 @@ export function useAgentOrchestrator(
     dispatch({ type: 'START_THINKING', request: messageText });
 
     try {
-      // Build context-aware prompt using AppBrain
-      const { ui } = latestStateRef.current;
+      // Build context-aware prompt using AppBrain smart context
+      const state = latestStateRef.current;
+      const { ui, manuscript } = state;
       const mic = ui.microphone;
       const recentEvents = orchestratorEventLogRef.current.length > 0
         ? orchestratorEventLogRef.current
@@ -291,9 +292,21 @@ export function useAgentOrchestrator(
             .join('\n')
         : 'None';
 
+      // Derive query type from current UI state
+      const queryType: 'editing' | 'analysis' | 'general' = ui.selection
+        ? 'editing'
+        : ui.activePanel === 'analysis'
+          ? 'analysis'
+          : 'general';
+
+      const smartContext = await getSmartAgentContext(state, manuscript.projectId, {
+        mode,
+        queryType,
+      });
+
       const contextPrompt = `
 [CURRENT CONTEXT]
-${brain.context.getCompressedContext()}
+${smartContext.context}
 
 [INPUT MODE]
 Agent mode: ${mode}. Microphone: ${mic.status}${mic.lastTranscript ? ` (last transcript: "${mic.lastTranscript}")` : ''}.
