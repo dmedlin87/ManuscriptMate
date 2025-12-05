@@ -19,6 +19,9 @@ import { useSettingsStore } from '@/features/settings';
 import { emitToolExecuted, eventBus, getSmartAgentContext } from '@/services/appBrain';
 import type { AppEvent } from '@/services/appBrain';
 import { runAgentToolLoop, AgentToolLoopModelResult } from '@/services/core/agentToolLoop';
+import { buildAgentContextPrompt } from '@/services/core/agentContextBuilder';
+import { createToolCallAdapter } from '@/services/core/toolCallAdapter';
+import type { ToolResult } from '@/services/gemini/toolExecutor';
 import {
   agentOrchestratorReducer,
   initialAgentMachineState,
@@ -235,29 +238,29 @@ export function useAgentOrchestrator(
   // TOOL EXECUTION
   // ─────────────────────────────────────────────────────────────────────────
 
-  const executeToolCall = useCallback(async (
-    toolName: string,
-    args: Record<string, unknown>
-  ): Promise<string> => {
-    dispatch({ type: 'START_EXECUTION', tool: toolName });
+  const executeToolCall = useCallback(
+    async (toolName: string, args: Record<string, unknown>): Promise<ToolResult> => {
+      dispatch({ type: 'START_EXECUTION', tool: toolName });
 
-    const projectId = brain.state.manuscript.projectId;
-    const result = await executeAgentToolCall(toolName, args, brain.actions, projectId);
+      const projectId = brain.state.manuscript.projectId;
+      const result = await executeAgentToolCall(toolName, args, brain.actions, projectId);
 
-    if (result.success) {
-      emitToolExecuted(toolName, true);
-      dispatch({ type: 'TOOL_COMPLETE', tool: toolName, success: true });
-    } else {
-      emitToolExecuted(toolName, false);
-      dispatch({
-        type: 'TOOL_COMPLETE',
-        tool: toolName,
-        success: false,
-        error: result.error ?? 'Unknown error',
-      });
-    }
-    return result.message;
-  }, [brain.actions, brain.state.manuscript.projectId]);
+      if (result.success) {
+        emitToolExecuted(toolName, true);
+        dispatch({ type: 'TOOL_COMPLETE', tool: toolName, success: true });
+      } else {
+        emitToolExecuted(toolName, false);
+        dispatch({
+          type: 'TOOL_COMPLETE',
+          tool: toolName,
+          success: false,
+          error: result.error ?? 'Unknown error',
+        });
+      }
+      return result;
+    },
+    [brain.actions, brain.state.manuscript.projectId],
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // MESSAGE HANDLING
@@ -304,23 +307,18 @@ export function useAgentOrchestrator(
         queryType,
       });
 
-      const contextPrompt = `
-[CURRENT CONTEXT]
-${smartContext.context}
-
-[INPUT MODE]
-Agent mode: ${mode}. Microphone: ${mic.status}${mic.lastTranscript ? ` (last transcript: "${mic.lastTranscript}")` : ''}.
-
-[USER STATE]
-Cursor: ${ui.cursor.position}
-Selection: ${ui.selection ? `"${ui.selection.text.slice(0, 100)}${ui.selection.text.length > 100 ? '...' : ''}"` : 'None'}
-
-[RECENT EVENTS]
-${recentEvents}
-
-[USER REQUEST]
-${messageText}
-`;
+      const contextPrompt = buildAgentContextPrompt({
+        smartContext: smartContext.context,
+        userText: messageText,
+        mode,
+        uiState: {
+          cursor: ui.cursor,
+          selection: ui.selection ? { text: ui.selection.text } : undefined,
+          activePanel: ui.activePanel,
+          microphone: mic,
+        },
+        recentEvents,
+      });
 
       const chat = chatRef.current;
       if (!chat) return;
@@ -330,30 +328,57 @@ ${messageText}
         message: contextPrompt,
       })) as AgentToolLoopModelResult;
 
+      const toolUI = createToolCallAdapter({
+        onMessage: appendMessages,
+        onToolStart: ({ name }) => dispatch({ type: 'START_EXECUTION', tool: name }),
+        onToolEnd: ({ name, result }) => {
+          dispatch({
+            type: 'TOOL_COMPLETE',
+            tool: name,
+            success: result.success,
+            error: result.error,
+          });
+          emitToolExecuted(name, result.success);
+        },
+      });
+
       const finalResult = await runAgentToolLoop<AgentToolLoopModelResult>({
         chat,
         initialResult,
         abortSignal: signal,
         processToolCalls: async functionCalls => {
-          const functionResponses: { id: string; name: string; response: { result: string } }[] = [];
+          const functionResponses: { id: string; name: string; response: { result: string } }[] =
+            [];
+
           for (const call of functionCalls) {
-            // Show tool call in UI
-            appendMessages({
-              role: 'model',
-              text: `🛠️ ${call.name}...`,
-              timestamp: new Date()
-            });
+            toolUI.handleToolStart(call.name);
+            try {
+              const result = (await executeToolCall(
+                call.name,
+                call.args as Record<string, unknown>,
+              )) as ToolResult;
 
-            const actionResult = await executeToolCall(
-              call.name,
-              call.args as Record<string, unknown>
-            );
-
-            functionResponses.push({
-              id: call.id || crypto.randomUUID(),
-              name: call.name,
-              response: { result: actionResult }
-            });
+              toolUI.handleToolEnd(call.name, result);
+              functionResponses.push({
+                id: call.id || crypto.randomUUID(),
+                name: call.name,
+                response: { result: result.message },
+              });
+            } catch (err) {
+              const errorMessage =
+                err instanceof Error ? err.message : 'Unknown error executing tool';
+              const fallback: ToolResult = {
+                success: false,
+                message: `Error executing ${call.name}: ${errorMessage}`,
+                error: errorMessage,
+              };
+              toolUI.handleToolEnd(call.name, fallback);
+              functionResponses.push({
+                id: call.id || crypto.randomUUID(),
+                name: call.name,
+                response: { result: fallback.message },
+              });
+            }
           }
           return functionResponses;
         },

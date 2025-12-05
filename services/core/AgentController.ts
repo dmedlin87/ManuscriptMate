@@ -10,6 +10,7 @@ import type { UsageMetadata, Chat, FunctionCall } from '@google/genai';
 import type { ToolResult } from '@/services/gemini/toolExecutor';
 import { runAgentToolLoop, AgentToolLoopModelResult } from '@/services/core/agentToolLoop';
 import { createChatSessionFromContext, buildInitializationMessage } from './agentSession';
+import { buildAgentContextPrompt } from './agentContextBuilder';
 import { ToolRunner } from './toolRunner.ts';
 
 // ---- Shared with existing hook ----
@@ -326,13 +327,16 @@ export class DefaultAgentController implements AgentController {
     try {
       const { streamHandlers } = input.options || {};
       if (streamHandlers) {
-        // Streaming is not yet implemented; ignore handlers for now.
-        console.warn('[AgentController] Streaming is not yet implemented.');
+        throw new Error('Streaming is not yet implemented for AgentController.');
       }
 
       // Build context-aware prompt using shared builder
       const { editorContext } = input;
-      const contextPrompt = buildUserContextPrompt(editorContext, input.text);
+      const contextPrompt = buildAgentContextPrompt({
+        editorContext,
+        userText: input.text,
+        mode: 'text',
+      });
 
       // Send to agent and run shared tool loop
       const initialResult = (await chat.sendMessage({

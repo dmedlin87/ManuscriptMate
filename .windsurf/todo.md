@@ -1,6 +1,6 @@
-## TODO
-1. Extract prompt builder and remove inline prompt string in AgentController.
-2. Simplify DefaultAgentController: split session vs request concerns and rely on event callbacks (no duplicate UI messaging/state).
-3. Update useAgentService to consume controller outputs and drop duplicate tool/error messaging.
-4. Adjust ToolRunner wiring to avoid duplicate tool-start messages.
-5. Run targeted tests (or at least relevant suites) after refactor.
+# TODO
+
+1. Wire shared context + tool adapter: replace promptBuilder usage in AgentController and useAgentOrchestrator with agentContextBuilder; use createToolCallAdapter in orchestrator; add streaming guard.
+2. Cleanup lifecycle: ensure eventBus unsubscribe on reinit/unmount and tighten reset/dispose semantics in AgentController.
+3. Add tests for tool loop, abort, persona reinit, streaming guard, and subscription cleanup.
+4. Run targeted tests (or at least relevant suites) after refactor.
