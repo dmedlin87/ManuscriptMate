@@ -5,6 +5,7 @@ import { findQuoteRange } from '@/features/shared';
 import { ScoreCard } from './ScoreCard';
 import { IssueCard } from './IssueCard';
 import { Contradiction, Lore } from '@/types/schema';
+import { AccessibleTooltip } from '@/features/shared/components/AccessibleTooltip';
 
 interface AnalysisPanelProps {
   analysis: AnalysisResult | null;
@@ -103,18 +104,27 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ analysis, isLoadin
             </div>
             <div className="flex flex-wrap gap-2">
               {onAnalyzeSelection && (
-                <button
-                  type="button"
-                  onClick={onAnalyzeSelection}
-                  disabled={!hasSelection}
-                  className={`px-3 py-1 rounded-md text-[var(--text-xs)] font-semibold transition-colors ${
+                <AccessibleTooltip
+                  content={
                     hasSelection
-                      ? 'bg-[var(--warning-600)] text-white hover:bg-[var(--warning-700)]'
-                      : 'bg-[var(--warning-100)] text-[var(--warning-600)] cursor-not-allowed'
-                  }`}
+                      ? 'Run analysis only on your highlighted text.'
+                      : 'Select text to enable selection-only analysis.'
+                  }
+                  position="top"
                 >
-                  Analyze selection only
-                </button>
+                  <button
+                    type="button"
+                    onClick={onAnalyzeSelection}
+                    disabled={!hasSelection}
+                    className={`px-3 py-1 rounded-md text-[var(--text-xs)] font-semibold transition-colors ${
+                      hasSelection
+                        ? 'bg-[var(--warning-600)] text-white hover:bg-[var(--warning-700)]'
+                        : 'bg-[var(--warning-100)] text-[var(--warning-600)] cursor-not-allowed'
+                    }`}
+                  >
+                    Analyze selection only
+                  </button>
+                </AccessibleTooltip>
               )}
               <a
                 className="px-3 py-1 rounded-md text-[var(--text-xs)] font-semibold bg-[var(--warning-100)] text-[var(--warning-700)] hover:bg-[var(--warning-200)]"

@@ -11,6 +11,7 @@ import { AnalysisResult } from '@/types';
 import { CommentCard } from './CommentCard';
 import { InlineComment } from '@/types/schema';
 import { useLayoutStore } from '@/features/layout/store/useLayoutStore';
+import { AccessibleTooltip } from '@/features/shared/components/AccessibleTooltip';
 
 /**
  * EditorWorkspace
@@ -115,18 +116,27 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = React.memo(({
           analyzing...
         </span>
       )}
-      <button
-        onClick={onRunAnalysis}
-        disabled={isAnalyzing}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
+      <AccessibleTooltip
+        content={
+          isAnalyzing
+            ? 'Analysis already running...'
+            : 'Run deep analysis on the active chapter (Ctrl/Cmd + Shift + A).'
+        }
+        position="bottom"
       >
-        {isAnalyzing ? (
-          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <Icons.Wand />
-        )}
-        Deep Analysis
-      </button>
+        <button
+          onClick={onRunAnalysis}
+          disabled={isAnalyzing}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--ink-900)] text-[var(--parchment-50)] text-[var(--text-sm)] font-medium hover:bg-[var(--ink-800)] disabled:opacity-70 transition-colors shadow-sm"
+        >
+          {isAnalyzing ? (
+            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Icons.Wand />
+          )}
+          Deep Analysis
+        </button>
+      </AccessibleTooltip>
     </div>
   </motion.header>
 ));

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useViewportCollision } from '@/features/shared';
 import { GrammarSuggestion } from '@/types';
+import { AccessibleTooltip } from '@/features/shared/components/AccessibleTooltip';
 
 interface MagicBarProps {
   isLoading: boolean;
@@ -182,30 +183,60 @@ const MagicBarComponent: React.FC<MagicBarProps> = ({
             <>
               {/* Context Tools */}
               <div className="flex gap-1">
-                  <button onClick={() => onHelp('Explain')} className={menuButtonClass} title="Explain Selection">
-                    <Icons.Lightbulb /> <span className="hidden sm:inline">Explain</span>
-                  </button>
-                  <button onClick={() => onHelp('Thesaurus')} className={menuButtonClass} title="Find Synonyms">
-                    <Icons.Book /> <span className="hidden sm:inline">Synonyms</span>
-                  </button>
-                  <button onClick={onGrammarCheck} className={menuButtonClass} title="Flag grammar issues">
-                    <Icons.Check /> <span className="hidden sm:inline">Fix grammar</span>
-                  </button>
+                  <AccessibleTooltip
+                    content="Explain your highlighted text. Tip: select text, then open Magic (Shift+Enter)."
+                    position="top"
+                  >
+                    <button onClick={() => onHelp('Explain')} className={menuButtonClass}>
+                      <Icons.Lightbulb /> <span className="hidden sm:inline">Explain</span>
+                    </button>
+                  </AccessibleTooltip>
+                  <AccessibleTooltip
+                    content="Find synonyms for the selected phrase."
+                    position="top"
+                  >
+                    <button onClick={() => onHelp('Thesaurus')} className={menuButtonClass}>
+                      <Icons.Book /> <span className="hidden sm:inline">Synonyms</span>
+                    </button>
+                  </AccessibleTooltip>
+                  <AccessibleTooltip
+                    content="Scan the selection for quick grammar fixes."
+                    position="top"
+                  >
+                    <button onClick={onGrammarCheck} className={menuButtonClass}>
+                      <Icons.Check /> <span className="hidden sm:inline">Fix grammar</span>
+                    </button>
+                  </AccessibleTooltip>
               </div>
 
               <div className="w-px h-6 bg-[var(--border-primary)] mx-1"></div>
 
               {/* Rewrite Tools */}
               <div className="flex gap-1">
-                  <button onClick={() => onRewrite("Show, Don't Tell")} className={primaryButtonClass} title="Make descriptive">
-                    <Icons.Eye /> Show
-                  </button>
-                  <button onClick={() => onRewrite('Dialogue Doctor')} className={primaryButtonClass} title="Improve dialogue">
-                    <Icons.Message /> Dialogue
-                  </button>
-                  <button onClick={() => setActiveView('tone')} className={primaryButtonClass} title="Change Tone">
-                    <Icons.Palette /> Tone
-                  </button>
+                  <AccessibleTooltip
+                    content="Rewrite to show instead of tell. Works on your highlighted text."
+                    position="top"
+                  >
+                    <button onClick={() => onRewrite("Show, Don't Tell")} className={primaryButtonClass}>
+                      <Icons.Eye /> Show
+                    </button>
+                  </AccessibleTooltip>
+                  <AccessibleTooltip
+                    content="Punch up dialogue in the selection."
+                    position="top"
+                  >
+                    <button onClick={() => onRewrite('Dialogue Doctor')} className={primaryButtonClass}>
+                      <Icons.Message /> Dialogue
+                    </button>
+                  </AccessibleTooltip>
+                  <AccessibleTooltip
+                    content="Open tone presets for the selected text."
+                    position="top"
+                  >
+                    <button onClick={() => setActiveView('tone')} className={primaryButtonClass}>
+                      <Icons.Palette /> Tone
+                    </button>
+                  </AccessibleTooltip>
               </div>
 
               <div className="w-px h-6 bg-[var(--border-primary)] mx-1"></div>
