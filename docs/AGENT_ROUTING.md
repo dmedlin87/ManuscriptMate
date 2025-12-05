@@ -16,7 +16,7 @@
 2) **App Brain & flow** — [APP_BRAIN_FLOW.md](./APP_BRAIN_FLOW.md): mermaid diagram of UI + Brain + memory + orchestrator.  
 3) **Omniscient agent vision** — [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md): phases, legacy vs. current paths.  
 4) **Memory system** — [MEMORY_SYSTEM.md](./MEMORY_SYSTEM.md): schemas, services, prompt integration.  
-5) **Bedside-note state** — [HANDOFF_BEDSIDE_NOTES.md](./HANDOFF_BEDSIDE_NOTES.md): current triggers, roadmap, and key files.  
+5) **Bedside-note state** — [BEDSIDE_NOTE_ROADMAP.md](./BEDSIDE_NOTE_ROADMAP.md): current triggers, roadmap, and key files.  
 6) **Tools catalog** — [AGENT_TOOLS_REFERENCE.md](./AGENT_TOOLS_REFERENCE.md): available tools and how to add one.
 
 ## How the agent gets context (files to inspect)
@@ -56,7 +56,7 @@ The bedside-note planning memory is evolved from multiple entrypoints. Trace the
 - **Agent-driven mutations:** `services/memory/bedsideNoteMutations.ts` + `update_bedside_note` tool.  
 - **Core evolution logic:** `services/memory/chains.ts` (`evolveBedsideNote`, conflict handling, roll-ups).  
 - **UI surfacing:** `features/memory/components/BedsideNotePanel.tsx` (history, conflicts, notifications).  
-- **Reference doc:** [HANDOFF_BEDSIDE_NOTES.md](./HANDOFF_BEDSIDE_NOTES.md) lists current triggers and gaps.
+- **Reference doc:** [BEDSIDE_NOTE_ROADMAP.md](./BEDSIDE_NOTE_ROADMAP.md) lists current triggers, gaps, and roadmap.
 
 ## Debugging playbook
 
@@ -69,7 +69,7 @@ The bedside-note planning memory is evolved from multiple entrypoints. Trace the
 
 ## Proposing new agent ideas (where to plug them)
 
-- **New proactive behaviors:** Add to `ProactiveThinker` (debounced, event-driven) and document in [HANDOFF_BEDSIDE_NOTES.md](./HANDOFF_BEDSIDE_NOTES.md) if planning-related.  
+- **New proactive behaviors:** Add to `ProactiveThinker` (debounced, event-driven) and document in [BEDSIDE_NOTE_ROADMAP.md](./BEDSIDE_NOTE_ROADMAP.md) if planning-related.  
 - **New context signals:** Extend `AppBrainState` and wire through `contextBuilder.ts` / `adaptiveContext.ts`.  
 - **New memory signals:** Add to `services/memory` and surface via `getSmartAgentContext`.  
 - **UI affordances:** Add panels or buttons that call `useAgentOrchestrator` rather than bypassing App Brain.

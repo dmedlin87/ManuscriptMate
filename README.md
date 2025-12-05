@@ -54,8 +54,7 @@ See:
    - [INTELLIGENCE_ENGINE.md](./docs/INTELLIGENCE_ENGINE.md) — Deterministic manuscript indexing and HUD signals.
 4. **Agent tools & memory**
    - [AGENT_TOOLS_REFERENCE.md](./docs/AGENT_TOOLS_REFERENCE.md) — Tool catalog and how to add tools.
-   - [MEMORY_SYSTEM.md](./docs/MEMORY_SYSTEM.md) — Memory schemas, services, and prompt integration.
-   - [HANDOFF_BEDSIDE_NOTES.md](./docs/HANDOFF_BEDSIDE_NOTES.md) — Current bedside-note state, triggers, and roadmap slices.
+   - Memory + bedside notes: [MEMORY_SYSTEM.md](./docs/MEMORY_SYSTEM.md) and [BEDSIDE_NOTE_ROADMAP.md](./docs/BEDSIDE_NOTE_ROADMAP.md).
 5. **Testing & coverage**
    - [TESTING.md](./docs/TESTING.md) — Strategy, CI flow, patterns.
    - [TEST_COVERAGE.md](./docs/TEST_COVERAGE.md), [TEST_AUDIT.md](./docs/TEST_AUDIT.md), [TEST_COVERAGE_PLAN.md](./docs/TEST_COVERAGE_PLAN.md) — Coverage status and gap plans.

@@ -11,6 +11,7 @@ import type { ToolResult } from '@/services/gemini/toolExecutor';
 import { runAgentToolLoop, AgentToolLoopModelResult } from '@/services/core/agentToolLoop';
 import { createChatSessionFromContext, buildInitializationMessage } from './agentSession';
 import { buildAgentContextPrompt } from './agentContextBuilder';
+import { getSmartAgentContext, type AppBrainState } from '@/services/appBrain';
 import { ToolRunner } from './toolRunner.ts';
 
 // ---- Shared with existing hook ----
@@ -330,9 +331,85 @@ export class DefaultAgentController implements AgentController {
         throw new Error('Streaming is not yet implemented for AgentController.');
       }
 
-      // Build context-aware prompt using shared builder
+      // Build smart context when possible; fallback to editor-only context
       const { editorContext } = input;
+
+      let smartContextString: string | undefined;
+      try {
+        const selection = editorContext.selection
+          ? {
+              start: editorContext.selection.start,
+              end: editorContext.selection.end,
+              text: editorContext.selection.text,
+            }
+          : null;
+
+        const appBrainState: AppBrainState = {
+          manuscript: {
+            projectId: this.context.projectId ?? null,
+            projectTitle: '',
+            chapters: this.context.chapters,
+            activeChapterId: this.context.chapters[0]?.id ?? null,
+            activeArcId: null,
+            currentText: this.context.fullText,
+            branches: [],
+            activeBranchId: null,
+            setting: undefined,
+            arcs: [],
+          },
+          intelligence: {
+            hud: this.context.intelligenceHUD ?? null,
+            full: null,
+            entities: null,
+            timeline: null,
+            style: null,
+            heatmap: null,
+            lastProcessedAt: Date.now(),
+          },
+          analysis: {
+            result: this.context.analysis ?? null,
+            status: {
+              pacing: 'idle',
+              characters: 'idle',
+              plot: 'idle',
+              setting: 'idle',
+            },
+            inlineComments: [],
+          },
+          lore: {
+            characters: this.context.lore?.characters ?? [],
+            worldRules: this.context.lore?.worldRules ?? [],
+            manuscriptIndex: undefined,
+          },
+          ui: {
+            cursor: { position: editorContext.cursorPosition, scene: null, paragraph: null },
+            selection,
+            activePanel: 'agent',
+            activeView: 'editor',
+            isZenMode: false,
+            activeHighlight: null,
+            microphone: { status: 'idle', mode: 'text', lastTranscript: null, error: null },
+          },
+          session: {
+            chatHistory: [],
+            currentPersona: this.currentPersona ?? null,
+            pendingToolCalls: [],
+            lastAgentAction: null,
+            isProcessing: false,
+          },
+        };
+
+        const smartContext = await getSmartAgentContext(appBrainState, this.context.projectId ?? null, {
+          mode: 'text',
+          queryType: selection ? 'editing' : 'general',
+        });
+        smartContextString = smartContext.context;
+      } catch (e) {
+        console.warn('[AgentController] Falling back to editor-only context:', e);
+      }
+
       const contextPrompt = buildAgentContextPrompt({
+        smartContext: smartContextString,
         editorContext,
         userText: input.text,
         mode: 'text',

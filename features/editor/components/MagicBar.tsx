@@ -137,6 +137,8 @@ const MagicBarComponent: React.FC<MagicBarProps> = ({
 
   const menuButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--interactive-bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:scale-105 active:scale-95";
   const primaryButtonClass = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-[var(--interactive-bg-active)] text-[var(--interactive-accent)] hover:bg-[var(--interactive-bg-hover)] hover:text-[var(--interactive-accent-hover)] shadow-sm hover:shadow-md border border-[var(--glass-border)]";
+  const disabledClasses = "disabled:opacity-60 disabled:cursor-not-allowed";
+  const disabledReason = isLoading ? 'Working…' : undefined;
 
   // --- Render Loading State ---
   if (isLoading) {
@@ -184,26 +186,26 @@ const MagicBarComponent: React.FC<MagicBarProps> = ({
               {/* Context Tools */}
               <div className="flex gap-1">
                   <AccessibleTooltip
-                    content="Explain your highlighted text. Tip: select text, then open Magic (Shift+Enter)."
+                    content={disabledReason ?? "Explain your highlighted text. Tip: press Shift+Enter to open Magic on a selection."}
                     position="top"
                   >
-                    <button onClick={() => onHelp('Explain')} className={menuButtonClass}>
+                    <button onClick={() => onHelp('Explain')} className={`${menuButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Lightbulb /> <span className="hidden sm:inline">Explain</span>
                     </button>
                   </AccessibleTooltip>
                   <AccessibleTooltip
-                    content="Find synonyms for the selected phrase."
+                    content={disabledReason ?? "Find synonyms for the selected phrase. Tip: Shift+Enter opens Magic on a selection."}
                     position="top"
                   >
-                    <button onClick={() => onHelp('Thesaurus')} className={menuButtonClass}>
+                    <button onClick={() => onHelp('Thesaurus')} className={`${menuButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Book /> <span className="hidden sm:inline">Synonyms</span>
                     </button>
                   </AccessibleTooltip>
                   <AccessibleTooltip
-                    content="Scan the selection for quick grammar fixes."
+                    content={disabledReason ?? "Scan the selection for quick grammar fixes (Shift+Enter to open Magic)."}
                     position="top"
                   >
-                    <button onClick={onGrammarCheck} className={menuButtonClass}>
+                    <button onClick={onGrammarCheck} className={`${menuButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Check /> <span className="hidden sm:inline">Fix grammar</span>
                     </button>
                   </AccessibleTooltip>
@@ -214,26 +216,26 @@ const MagicBarComponent: React.FC<MagicBarProps> = ({
               {/* Rewrite Tools */}
               <div className="flex gap-1">
                   <AccessibleTooltip
-                    content="Rewrite to show instead of tell. Works on your highlighted text."
+                    content={disabledReason ?? "Rewrite to show instead of tell. Shortcut: Shift+Enter to open Magic, then click Show."}
                     position="top"
                   >
-                    <button onClick={() => onRewrite("Show, Don't Tell")} className={primaryButtonClass}>
+                    <button onClick={() => onRewrite("Show, Don't Tell")} className={`${primaryButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Eye /> Show
                     </button>
                   </AccessibleTooltip>
                   <AccessibleTooltip
-                    content="Punch up dialogue in the selection."
+                    content={disabledReason ?? "Punch up dialogue in the selection. Shortcut: Shift+Enter to open Magic."}
                     position="top"
                   >
-                    <button onClick={() => onRewrite('Dialogue Doctor')} className={primaryButtonClass}>
+                    <button onClick={() => onRewrite('Dialogue Doctor')} className={`${primaryButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Message /> Dialogue
                     </button>
                   </AccessibleTooltip>
                   <AccessibleTooltip
-                    content="Open tone presets for the selected text."
+                    content={disabledReason ?? "Open tone presets for the selected text. Shortcut: Shift+Enter to open Magic."}
                     position="top"
                   >
-                    <button onClick={() => setActiveView('tone')} className={primaryButtonClass}>
+                    <button onClick={() => setActiveView('tone')} className={`${primaryButtonClass} ${disabledClasses}`} disabled={!!disabledReason} aria-disabled={!!disabledReason}>
                       <Icons.Palette /> Tone
                     </button>
                   </AccessibleTooltip>

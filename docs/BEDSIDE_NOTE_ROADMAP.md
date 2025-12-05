@@ -6,6 +6,40 @@ The metaphor: a novelist's bedside notebook where they jot down "don't forget Sa
 
 ---
 
+## Handoff snapshot (Dec 2025)
+
+### Current capabilities
+
+- Persistent planning note per project (plan, scope:project, tagged `meta:bedside-note`) auto-created and surfaced first in memory context.
+- Evolution via chains (`evolveBedsideNote`):
+  - Structured content storage, embeddings, conflict detection/tagging (`conflict:detected`, `conflict:resolution:*`).
+  - Roll-up from chapter → arc → project when evolving chapter/arc notes.
+  - Extra tags support; keeps prior versions.
+- Triggers implemented:
+  - **Analysis**: `useMemoryIntelligence` builds plan text from analysis+goals and evolves bedside note (`changeReason: analysis_update`).
+  - **Proactive thinking**: When LLM flags significance, evolves bedside note with suggestions + reminders (`changeReason: proactive_thinking`).
+  - **Goal lifecycle**: add/complete/abandon goal evolves bedside note with counts (`changeReason: goal_lifecycle`).
+  - **Staleness refresh**: `buildMemorySection` refreshes bedside note if `updatedAt` > `DEFAULT_BEDSIDE_NOTE_STALENESS_MS` (6h) (`changeReason: staleness_refresh`).
+  - **Chapter transition**: ProactiveThinker listens to `CHAPTER_CHANGED` and evolves bedside with chapter title/issues/watched entities (`changeReason: chapter_transition`, tagged with chapter).
+  - **Significant edit bursts**: ProactiveThinker accumulates text deltas; if >500 chars and cooldown passed, evolves bedside note with reminder (`changeReason: significant_edit`, tagged with chapter/edit).
+  - **Session boundary**: `handleSessionStart/End` evolve bedside with reminders/summary on session lifecycle (`changeReason: session_start` / `session_boundary`, debounced).
+- Agent-driven updates: `update_bedside_note` tool + `applyBedsideNoteMutation` for structured edits (`changeReason: agent_*`).
+- Author cross-project: `seedProjectBedsideNoteFromAuthor`, `recordProjectRetrospective` for author-scoped bedside notes.
+- UI: `BedsideNotePanel` renders structured content, conflicts, notifications (conflicts, stalled goals), history.
+
+### Gaps to close soon
+
+- Hierarchical prompt assembly: adaptive/context builders prioritize bedside notes by active chapter/arc, but do not explicitly fetch/render distinct chapter/arc/project bedside notes as separate sections (only ordering + roll-up today).
+- Tests: new chapter-transition and significant-edit triggers lack coverage; staleness refresh path unverified; mutation/tool wiring tests may be missing.
+- Threshold config: significant-edit thresholds are hardcoded in ProactiveThinker (delta≥500, cooldown 5m).
+
+### Status
+
+- Tests have not been re-run after the chapter/significant-edit trigger change.
+- Roadmap priorities below remain the source of truth.
+
+---
+
 ## Current State (Phases 1–2)
 
 ### Phase 1: Persistent Planning Memory ✅

@@ -200,6 +200,9 @@ export const EditorWorkspace: React.FC = () => {
     updateIntelligenceText(newText, 0); // Cursor offset updated separately
   }, [updateText, updateIntelligenceText]);
 
+  const isEmptyDocument = currentText.trim().length === 0;
+  const showSelectionHint = !selectionRange && !isEmptyDocument;
+
   const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
   const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
@@ -374,8 +377,8 @@ export const EditorWorkspace: React.FC = () => {
             editor={editor}
           />
 
-          <RichTextEditor
-            key={activeChapter?.id || "editor"}
+          <RichTextEditor 
+            key={activeChapter?.id || 'editor'}
             content={currentText}
             onUpdate={handleTextUpdate}
             onSelectionChange={setSelectionState}
@@ -387,6 +390,21 @@ export const EditorWorkspace: React.FC = () => {
             isZenMode={isZenMode}
             onCommentClick={handleCommentClick}
           />
+
+          <div className="mt-4 space-y-3">
+            {isEmptyDocument && (
+              <div className="glass-strong border border-[var(--border-primary)] rounded-xl p-4 shadow-sm text-[var(--text-secondary)] animate-fade-in">
+                <div className="text-[var(--text-primary)] font-semibold mb-1">Start writing to get AI help</div>
+                <p className="text-sm">Begin drafting, then highlight a passage and press <strong>Shift + Enter</strong> to open Magic for rewrites, synonyms, grammar fixes, or tones.</p>
+              </div>
+            )}
+            {showSelectionHint && (
+              <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-sm">
+                <span className="inline-flex h-2 w-2 rounded-full bg-[var(--interactive-accent)] animate-pulse" aria-hidden />
+                <span>Highlight a sentence and press <strong>Shift + Enter</strong> to open Magic tools inline.</span>
+              </div>
+            )}
+          </div>
 
           {selectionRange && selectionPos && (
             <MagicBar

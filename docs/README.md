@@ -6,7 +6,7 @@ This folder contains project documentation and development guides. Start here to
 
 - **New to the agent?** Read [AGENT_ROUTING.md](./AGENT_ROUTING.md) first — it explains how the agent thinks, which docs/files to open, and where to plug in new ideas or debug issues.
 - **Architecture refresh:** [ARCHITECTURE.md](./ARCHITECTURE.md) and [APP_BRAIN_FLOW.md](./APP_BRAIN_FLOW.md).
-- **Memory + bedside notes:** [MEMORY_SYSTEM.md](./MEMORY_SYSTEM.md) and [HANDOFF_BEDSIDE_NOTES.md](./HANDOFF_BEDSIDE_NOTES.md).
+- **Memory + bedside notes:** [MEMORY_SYSTEM.md](./MEMORY_SYSTEM.md) and [BEDSIDE_NOTE_ROADMAP.md](./BEDSIDE_NOTE_ROADMAP.md).
 - **Agent tools:** [AGENT_TOOLS_REFERENCE.md](./AGENT_TOOLS_REFERENCE.md).
 - **Testing:** [TESTING.md](./TESTING.md) plus generated coverage docs below.
 
@@ -20,7 +20,7 @@ This folder contains project documentation and development guides. Start here to
 | Omniscient agent | [AGENT_ARCHITECTURE.md](./AGENT_ARCHITECTURE.md) | App Brain vision, phases, and legacy vs. current paths. |
 | Agent tools | [AGENT_TOOLS_REFERENCE.md](./AGENT_TOOLS_REFERENCE.md) | Tool catalog and how to add/modify tools. |
 | Memory system | [MEMORY_SYSTEM.md](./MEMORY_SYSTEM.md) | Memory schemas, services, prompt integration. |
-| Bedside notes | [HANDOFF_BEDSIDE_NOTES.md](./HANDOFF_BEDSIDE_NOTES.md) | Current state, triggers, and roadmap slices for planning memory. |
+| Bedside notes | [BEDSIDE_NOTE_ROADMAP.md](./BEDSIDE_NOTE_ROADMAP.md) | Current state, triggers, and roadmap slices for planning memory. |
 | Intelligence engine | [INTELLIGENCE_ENGINE.md](./INTELLIGENCE_ENGINE.md) | Deterministic manuscript indexing, HUD, entities. |
 | Token limits | [token-limits.md](./token-limits.md) | Model/token guard guidance. |
 | Testing strategy | [TESTING.md](./TESTING.md) | How we test, patterns, CI flow. |

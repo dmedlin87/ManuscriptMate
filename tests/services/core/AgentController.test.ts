@@ -5,6 +5,7 @@ const {
   mockCreateChatSessionFromContext,
   mockSendMessage,
   mockGetOrCreateBedsideNote,
+  mockGetSmartAgentContext,
 } = vi.hoisted(() => {
   const mockSendMessage = vi.fn();
   const mockCreateChatSessionFromContext = vi.fn(() => ({
@@ -18,7 +19,9 @@ const {
     text: 'Existing bedside note summary',
   }));
 
-  return { mockCreateChatSessionFromContext, mockSendMessage, mockGetOrCreateBedsideNote };
+  const mockGetSmartAgentContext = vi.fn();
+
+  return { mockCreateChatSessionFromContext, mockSendMessage, mockGetOrCreateBedsideNote, mockGetSmartAgentContext };
 });
 
 vi.mock('@/services/core/agentSession', () => ({
@@ -30,6 +33,10 @@ vi.mock('@/services/core/agentSession', () => ({
 
 vi.mock('@/services/memory', () => ({
   getOrCreateBedsideNote: mockGetOrCreateBedsideNote,
+}));
+
+vi.mock('@/services/appBrain', () => ({
+  getSmartAgentContext: mockGetSmartAgentContext,
 }));
 
 describe('DefaultAgentController', () => {
@@ -324,6 +331,35 @@ describe('DefaultAgentController', () => {
         text.includes('Sorry, I encountered an error connecting to the Agent.'),
       ),
     ).toBe(true);
+  });
+
+  it('builds smart context when available and falls back on failure', async () => {
+    mockSendMessage.mockResolvedValueOnce({ text: 'init-ok' });
+    mockSendMessage.mockResolvedValueOnce({ text: 'response' });
+
+    // Happy path: smart context resolves
+    mockGetSmartAgentContext.mockResolvedValueOnce({ context: '[SMART]', tokenCount: 100, sectionsIncluded: [], sectionsTruncated: [], sectionsOmitted: [], budget: { totalTokens: 16000, sections: {} as any } });
+
+    const { controller, events } = makeController();
+    await controller.sendMessage({ text: 'Hello smart', editorContext });
+
+    expect(mockGetSmartAgentContext).toHaveBeenCalledTimes(1);
+    const sentPromptFirstCall = mockSendMessage.mock.calls[1]?.[0]?.message as string;
+    expect(sentPromptFirstCall).toContain('[SMART]');
+
+    // Now force smart context to throw to ensure fallback still sends
+    mockSendMessage.mockClear();
+    mockGetSmartAgentContext.mockRejectedValueOnce(new Error('ctx failed'));
+
+    await controller.sendMessage({ text: 'Fallback please', editorContext });
+
+    expect(mockGetSmartAgentContext).toHaveBeenCalledTimes(2);
+    const sentPromptFallback = mockSendMessage.mock.calls[1]?.[0]?.message as string;
+    expect(sentPromptFallback).toContain('[USER CONTEXT]'); // fallback path uses editor context
+
+    // User/model messages still emitted
+    const messageTexts = (events.onMessage as any).mock.calls.map((call: any[]) => call[0].text);
+    expect(messageTexts).toContain('Fallback please');
   });
 
   it('treats AbortError as a clean cancellation without error state', async () => {
