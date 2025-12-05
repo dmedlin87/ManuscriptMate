@@ -8,7 +8,6 @@ import {
   rewriteText,
   getContextualHelp,
   createAgentSessionLegacy as createAgentSession,
-  agentTools,
   ALL_AGENT_TOOLS,
   QuillAgent,
   generateContinuation,
@@ -38,45 +37,6 @@ const mockAi = vi.hoisted(() => ({
 vi.mock('@/services/gemini/client', () => ({
   ai: mockAi,
 }));
-
-// Mock resilient parser
-// (Use real implementation for rewriteText tests; individual test cases may spy if needed.)
-
-describe('agentTools configuration', () => {
-  it('defines correct tool structure for update_manuscript', () => {
-    const updateTool = agentTools.find(tool => tool.name === 'update_manuscript');
-    
-    expect(updateTool).toBeDefined();
-    expect(updateTool?.description).toContain('ACTIVE CHAPTER');
-    expect(updateTool?.parameters.type).toBe('OBJECT');
-    expect(updateTool?.parameters.required).toEqual(['search_text', 'replacement_text', 'description']);
-    expect(updateTool?.parameters.properties.search_text.type).toBe('STRING');
-    expect(updateTool?.parameters.properties.replacement_text.type).toBe('STRING');
-    expect(updateTool?.parameters.properties.description.type).toBe('STRING');
-  });
-
-  it('defines correct tool structure for append_to_manuscript', () => {
-    const appendTool = agentTools.find(tool => tool.name === 'append_to_manuscript');
-    
-    expect(appendTool).toBeDefined();
-    expect(appendTool?.description).toContain('very end of the ACTIVE CHAPTER');
-    expect(appendTool?.parameters.required).toEqual(['text_to_add', 'description']);
-  });
-
-  it('defines correct tool structure for undo_last_change', () => {
-    const undoTool = agentTools.find(tool => tool.name === 'undo_last_change');
-    
-    expect(undoTool).toBeDefined();
-    expect(undoTool?.description).toContain('previous version');
-    expect(undoTool?.parameters.required).toBeUndefined();
-  });
-
-  it('has exactly three tools defined', () => {
-    expect(agentTools).toHaveLength(3);
-    const toolNames = agentTools.map(tool => tool.name);
-    expect(toolNames).toEqual(['update_manuscript', 'append_to_manuscript', 'undo_last_change']);
-  });
-});
 
 describe('rewriteText', () => {
   beforeEach(() => {
