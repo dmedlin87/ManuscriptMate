@@ -13,9 +13,9 @@ import { ModelConfig, ThinkingBudgets } from '../../config/models';
 import { eventBus } from './eventBus';
 import type { AppEvent, AppBrainState } from './types';
 import { buildCompressedContext } from './contextBuilder';
-import { getHighPriorityConflicts, formatConflictsForPrompt } from './intelligenceMemoryBridge';
-import { getImportantReminders, type ProactiveSuggestion } from '../memory/proactive';
+import { formatConflictsForPrompt, getHighPriorityConflicts } from './intelligenceMemoryBridge';
 import { evolveBedsideNote } from '../memory';
+import { getImportantReminders, type ProactiveSuggestion } from '../memory/proactive';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -60,6 +60,9 @@ export interface ThinkerState {
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
 // ─────────────────────────────────────────────────────────────────────────────
+
+const SIGNIFICANT_EDIT_THRESHOLD = 500;
+const SIGNIFICANT_EDIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 const DEFAULT_CONFIG: ThinkerConfig = {
   debounceMs: 10000, // 10 seconds between thinks
@@ -113,6 +116,19 @@ Respond in JSON format:
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN THINKER CLASS
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface RawSuggestion {
+  title?: string;
+  description?: string;
+  priority?: ProactiveSuggestion['priority'];
+  type?: string;
+}
+
+interface RawThinkingResponse {
+  significant?: boolean;
+  suggestions?: RawSuggestion[];
+  reasoning?: string;
+}
 
 export class ProactiveThinker {
   private config: ThinkerConfig;
@@ -193,7 +209,7 @@ export class ProactiveThinker {
     if (!this.getState || !this.projectId) {
       return null;
     }
-    
+
     return this.performThinking();
   }
 
@@ -202,99 +218,109 @@ export class ProactiveThinker {
   // ───────────────────────────────────────────────────────────────────────────
 
   private handleEvent(event: AppEvent): void {
-    // Opportunistic bedside-note updates for high-signal events
-    if (this.projectId && this.getState) {
-      const state = this.getState();
-      const projectId = state.manuscript.projectId;
+    this.maybeUpdateBedsideNotes(event);
+    this.enqueueEvent(event);
+    this.scheduleThinking(this.isUrgentEvent(event));
+  }
 
-      // Chapter transitions → evolve bedside with immediate context
-      if (event.type === 'CHAPTER_CHANGED' && event.payload?.chapterId) {
-        const issues = event.payload.issues ?? [];
-        const watched = event.payload.watchedEntities ?? [];
-        const lines: string[] = [];
-        lines.push(`Now in chapter: "${event.payload.title}"`);
-        if (issues.length > 0) {
-          lines.push('Chapter issues to watch:');
-          for (const issue of issues.slice(0, 3)) {
-            const severity = issue.severity ? ` (${issue.severity})` : '';
-            lines.push(`- ${issue.description}${severity}`);
-          }
-        }
-        if (watched.length > 0) {
-          lines.push('Watched entities in this chapter:');
-          for (const entity of watched.slice(0, 5)) {
-            const priority = entity.priority ? ` [${entity.priority}]` : '';
-            lines.push(`- ${entity.name}${priority}${entity.reason ? ` — ${entity.reason}` : ''}`);
-          }
-        }
-        const planText = lines.join('\n');
-        if (planText.trim()) {
-          evolveBedsideNote(projectId, planText, {
-            changeReason: 'chapter_transition',
-            chapterId: event.payload.chapterId,
-            extraTags: [`chapter:${event.payload.chapterId}`],
-          }).catch(e => console.warn('[ProactiveThinker] Chapter transition bedside update failed:', e));
-        }
-      }
+  private maybeUpdateBedsideNotes(event: AppEvent): void {
+    if (!this.projectId || !this.getState) return;
+    const state = this.getState();
 
-      // Significant edit bursts → evolve bedside with a reminder to recheck continuity
-      if (event.type === 'TEXT_CHANGED') {
-        const delta = event.payload?.delta ?? 0;
-        this.state.editDeltaAccumulator += Math.abs(delta);
-        const EDIT_THRESHOLD = 500;
-        const EDIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-        const now = Date.now();
-        if (
-          this.state.editDeltaAccumulator >= EDIT_THRESHOLD &&
-          now - this.state.lastEditEvolveAt > EDIT_COOLDOWN_MS
-        ) {
-          this.state.editDeltaAccumulator = 0;
-          this.state.lastEditEvolveAt = now;
+    this.handleChapterTransition(event, state);
+    this.handleSignificantEdit(event, state);
+  }
 
-          const activeChapter = state.manuscript.chapters.find(
-            ch => ch.id === state.manuscript.activeChapterId
-          );
-          const chapterLine = activeChapter ? ` in "${activeChapter.title}"` : '';
-          const planText = `Significant edits detected${chapterLine}. Recheck continuity, goals, and conflicts.`;
-          evolveBedsideNote(projectId, planText, {
-            changeReason: 'significant_edit',
-            chapterId: state.manuscript.activeChapterId ?? undefined,
-            extraTags: [
-              ...(state.manuscript.activeChapterId ? [`chapter:${state.manuscript.activeChapterId}`] : []),
-              'edit:significant',
-            ],
-          }).catch(e => console.warn('[ProactiveThinker] Significant edit bedside update failed:', e));
-        }
+  private handleChapterTransition(event: AppEvent, state: AppBrainState): void {
+    if (event.type !== 'CHAPTER_CHANGED' || !event.payload?.chapterId) return;
+
+    const { issues = [], watchedEntities = [], title } = event.payload;
+    const lines: string[] = [`Now in chapter: "${title}"`];
+
+    if (issues.length > 0) {
+      lines.push('Chapter issues to watch:');
+      for (const issue of issues.slice(0, 3)) {
+        const severity = issue.severity ? ` (${issue.severity})` : '';
+        lines.push(`- ${issue.description}${severity}`);
       }
     }
 
-    // Add to pending events
+    if (watchedEntities.length > 0) {
+      lines.push('Watched entities in this chapter:');
+      for (const entity of watchedEntities.slice(0, 5)) {
+        const priority = entity.priority ? ` [${entity.priority}]` : '';
+        const reason = entity.reason ? ` — ${entity.reason}` : '';
+        lines.push(`- ${entity.name}${priority}${reason}`);
+      }
+    }
+
+    const planText = lines.join('\n');
+    if (!planText.trim()) return;
+
+    const projectId = state.manuscript.projectId;
+    evolveBedsideNote(projectId, planText, {
+      changeReason: 'chapter_transition',
+      chapterId: event.payload.chapterId,
+      extraTags: [`chapter:${event.payload.chapterId}`],
+    }).catch(error =>
+      console.warn('[ProactiveThinker] Chapter transition bedside update failed:', error)
+    );
+  }
+
+  private handleSignificantEdit(event: AppEvent, state: AppBrainState): void {
+    if (event.type !== 'TEXT_CHANGED') return;
+
+    const delta = Math.abs(event.payload?.delta ?? 0);
+    this.state.editDeltaAccumulator += delta;
+
+    const now = Date.now();
+    const exceededThreshold = this.state.editDeltaAccumulator >= SIGNIFICANT_EDIT_THRESHOLD;
+    const pastCooldown = now - this.state.lastEditEvolveAt > SIGNIFICANT_EDIT_COOLDOWN_MS;
+
+    if (!exceededThreshold || !pastCooldown) return;
+
+    this.state.editDeltaAccumulator = 0;
+    this.state.lastEditEvolveAt = now;
+
+    const { manuscript } = state;
+    const activeChapter = manuscript.chapters.find(
+      chapter => chapter.id === manuscript.activeChapterId
+    );
+    const chapterLine = activeChapter ? ` in "${activeChapter.title}"` : '';
+    const planText = `Significant edits detected${chapterLine}. Recheck continuity, goals, and conflicts.`;
+
+    evolveBedsideNote(manuscript.projectId, planText, {
+      changeReason: 'significant_edit',
+      chapterId: manuscript.activeChapterId ?? undefined,
+      extraTags: [
+        ...(manuscript.activeChapterId ? [`chapter:${manuscript.activeChapterId}`] : []),
+        'edit:significant',
+      ],
+    }).catch(error =>
+      console.warn('[ProactiveThinker] Significant edit bedside update failed:', error)
+    );
+  }
+
+  private enqueueEvent(event: AppEvent): void {
     this.state.pendingEvents.push(event);
-    
-    // Trim to max batch size
+
     if (this.state.pendingEvents.length > this.config.maxBatchSize) {
       this.state.pendingEvents = this.state.pendingEvents.slice(-this.config.maxBatchSize);
     }
-    
-    // Check for urgent events
-    const isUrgent = this.config.urgentEventTypes.includes(event.type);
-    
-    // Schedule thinking
-    this.scheduleThinking(isUrgent);
+  }
+
+  private isUrgentEvent(event: AppEvent): boolean {
+    return this.config.urgentEventTypes.includes(event.type);
   }
 
   private scheduleThinking(urgent: boolean): void {
-    // Clear existing timer
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
+    this.clearDebounceTimer();
     
     // Check if we have enough events
     if (this.state.pendingEvents.length < this.config.minEventsToThink && !urgent) {
       return;
     }
     
-    // Check cooldown
     const timeSinceLastThink = Date.now() - this.state.lastThinkTime;
     const cooldownRemaining = Math.max(0, this.config.debounceMs - timeSinceLastThink);
     
@@ -423,37 +449,49 @@ export class ProactiveThinker {
   }
 
   private parseThinkingResult(text: string): Omit<ThinkingResult, 'thinkingTime'> {
-    try {
-      const parsed = JSON.parse(text);
-      
-      const suggestions: ProactiveSuggestion[] = (parsed.suggestions || []).map(
-        (s: any, i: number) => ({
-          id: `proactive-${Date.now()}-${i}`,
-          type: 'related_memory' as const,
-          priority: s.priority || 'medium',
-          title: s.title || 'Suggestion',
-          description: s.description || '',
-          source: {
-            type: 'memory' as const,
-            id: 'proactive-thinker',
-          },
-          tags: [s.type || 'general'],
-          createdAt: Date.now(),
-        })
-      );
-      
-      return {
-        suggestions,
-        rawThinking: parsed.reasoning,
-        significant: parsed.significant || suggestions.length > 0,
-      };
-    } catch (e) {
-      console.warn('[ProactiveThinker] Failed to parse thinking result:', e);
-      return {
-        suggestions: [],
-        significant: false,
-      };
+    const parsed = this.safeParseResponse(text);
+    if (!parsed) {
+      return { suggestions: [], significant: false };
     }
+
+    const suggestions = this.mapSuggestions(parsed.suggestions ?? []);
+    return {
+      suggestions,
+      rawThinking: parsed.reasoning,
+      significant: parsed.significant ?? suggestions.length > 0,
+    };
+  }
+
+  private safeParseResponse(text: string): RawThinkingResponse | null {
+    try {
+      return JSON.parse(text) as RawThinkingResponse;
+    } catch (error) {
+      console.warn('[ProactiveThinker] Failed to parse thinking result:', error);
+      return null;
+    }
+  }
+
+  private mapSuggestions(raw: RawSuggestion[]): ProactiveSuggestion[] {
+    const timestamp = Date.now();
+    return raw.map((suggestion, index) => ({
+      id: `proactive-${timestamp}-${index}`,
+      type: 'related_memory' as const,
+      priority: suggestion.priority ?? 'medium',
+      title: suggestion.title ?? 'Suggestion',
+      description: suggestion.description ?? '',
+      source: {
+        type: 'memory' as const,
+        id: 'proactive-thinker',
+      },
+      tags: [suggestion.type ?? 'general'],
+      createdAt: timestamp,
+    }));
+  }
+
+  private clearDebounceTimer(): void {
+    if (!this.debounceTimer) return;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = null;
   }
 }
 
